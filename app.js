@@ -249,26 +249,31 @@ function restoreMyQueue() {
 
 async function showNativeNotification(title, body) {
   if (Notification.permission !== 'granted') return;
-  try {
-    const reg = await navigator.serviceWorker?.ready;
-    if (reg?.active) {
-      // ✅ SW ga xabar yuborish — SW o'zi showNotification() chaqiradi
-      // Chrome Android da sahifadan showNotification() chaqirish "kontent berkitildi" beradi
-      reg.active.postMessage({
-        type: 'SHOW_NOTIFICATION',
-        title,
-        body,
-        icon: `${location.origin}/icons/icon-192.png`,
-        badge: `${location.origin}/icons/icon-72.png`
-      });
-    } else {
-      // Fallback (desktop)
+
+  // ✅ Sahifa OCHIQ bo'lsa — to'g'ridan new Notification()
+  // Bu hamma brauzer va platformalarda ishlaydi
+  if (document.visibilityState === 'visible') {
+    try {
       new Notification(title, {
         body,
         icon: `${location.origin}/icons/icon-192.png`
       });
+      return;
+    } catch(e) {}
+  }
+
+  // Sahifa YOPIQ/FONDA bo'lsa — SW orqali (event.waitUntil bilan)
+  try {
+    const reg = await navigator.serviceWorker?.ready;
+    if (reg?.active) {
+      reg.active.postMessage({
+        type:  'SHOW_NOTIFICATION',
+        title, body,
+        icon:  `${location.origin}/icons/icon-192.png`,
+        badge: `${location.origin}/icons/icon-72.png`
+      });
     }
-  } catch(e) { console.warn('Notification xatosi:', e); }
+  } catch(e) { console.warn('SW notification xatosi:', e); }
 }
 
 // ====================================================

@@ -86,43 +86,50 @@ async function idbDelete(key) {
 // APP.JS DAN XABAR QABUL QILISH
 // (Navbat olinganida app.js SW ga xabar yuboradi)
 // ====================================================
-self.addEventListener('message', async (event) => {
+// ====================================================
+// APP.JS DAN XABAR QABUL QILISH
+// MUHIM: event.waitUntil() ishlatilmasa Chrome SW ni
+// o'chirib yuboradi va "kontent berkitildi" chiqaradi!
+// ====================================================
+self.addEventListener('message', (event) => {
   const { type, payload } = event.data || {};
 
-  // Navbat ma'lumotini saqlash
+  // ✅ SHOW_NOTIFICATION — event.waitUntil() MAJBURIY
+  if (type === 'SHOW_NOTIFICATION') {
+    const { title, body, icon, badge } = event.data;
+    event.waitUntil(
+      self.registration.showNotification(title || 'ShifoNavbat', {
+        body:               body  || '',
+        icon:               icon  || `${self.location.origin}/icons/icon-192.png`,
+        badge:              badge || `${self.location.origin}/icons/icon-72.png`,
+        requireInteraction: true,
+        vibrate:            [400, 100, 400, 100, 600],
+        tag:                'shifo-queue',
+        renotify:           true,
+        data:               { url: self.location.origin }
+      })
+    );
+  }
+
+  // Navbat ma'lumotini IndexedDB ga saqlash
   if (type === 'SAVE_QUEUE') {
-    await idbSet('myQueue', payload);
-    console.log('[SW] Navbat saqlandi:', payload);
-    try {
-      if (self.registration.periodicSync) {
-        await self.registration.periodicSync.register('check-queue', {
-          minInterval: 60 * 1000
-        });
-      }
-    } catch(e) {}
+    event.waitUntil(
+      idbSet('myQueue', payload).then(() => {
+        // Periodic Sync ro'yxatdan o'tkazish
+        if (self.registration.periodicSync) {
+          return self.registration.periodicSync.register('check-queue', {
+            minInterval: 60 * 1000
+          }).catch(() => {});
+        }
+      })
+    );
   }
 
   if (type === 'CLEAR_QUEUE') {
-    await idbDelete('myQueue');
-  }
-
-  // ✅ Sahifadan bildirishnoma so'rovi — SW o'zi chiqaradi
-  // Chrome Android da sahifadan showNotification() = "kontent berkitildi"
-  // SW kontekstidan chaqirilsa = to'g'ri ishlaydi
-  if (type === 'SHOW_NOTIFICATION') {
-    const { title, body, icon, badge } = event.data;
-    await self.registration.showNotification(title || 'ShifoNavbat', {
-      body:               body || '',
-      icon:               icon  || `${self.location.origin}/icons/icon-192.png`,
-      badge:              badge || `${self.location.origin}/icons/icon-72.png`,
-      requireInteraction: true,
-      vibrate:            [400, 100, 400, 100, 600],
-      tag:                'shifo-queue',
-      renotify:           true,
-      data:               { url: self.location.origin }
-    });
+    event.waitUntil(idbDelete('myQueue'));
   }
 });
+
 
 // ====================================================
 // PERIODIC BACKGROUND SYNC
@@ -240,7 +247,7 @@ self.addEventListener('notificationclick', (event) => {
 // ====================================================
 // OFFLINE CACHE
 // ====================================================
-const CACHE = 'shifonavbat-v3';
+const CACHE = 'shifonavbat-v4';
 const CACHE_FILES = ['/', '/index.html', '/style.css', '/app.js'];
 
 self.addEventListener('install', (event) => {
