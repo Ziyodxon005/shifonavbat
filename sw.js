@@ -152,7 +152,7 @@ async function checkAndNotify() {
     }
 
     if (remaining === 3 && !notified3) {
-      await self.registration.showNotification(' Navbatingiz Yaqinlashdi!', {
+      await self.registration.showNotification('⏰ Navbatingiz Yaqinlashdi!', {
         body: `Sizdan oldin ${remaining} kishi qoldi`,
         icon: `${self.location.origin}/icons/icon-192.png`,
         badge: `${self.location.origin}/icons/icon-72.png`,

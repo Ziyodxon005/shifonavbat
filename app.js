@@ -250,30 +250,18 @@ function restoreMyQueue() {
 async function showNativeNotification(title, body) {
   if (Notification.permission !== 'granted') return;
 
-  // ✅ Sahifa OCHIQ bo'lsa — to'g'ridan new Notification()
-  // Bu hamma brauzer va platformalarda ishlaydi
-  if (document.visibilityState === 'visible') {
-    try {
-      new Notification(title, {
-        body,
-        icon: `${location.origin}/icons/icon-192.png`
-      });
-      return;
-    } catch(e) {}
-  }
-
-  // Sahifa YOPIQ/FONDA bo'lsa — SW orqali (event.waitUntil bilan)
+  // ✅ Eng sodda usul — hech qanday SW, icon, badge yo'q
+  // Agar shu ham "kontent berkitildi" desa — Chrome quiet mode muammo
   try {
-    const reg = await navigator.serviceWorker?.ready;
-    if (reg?.active) {
-      reg.active.postMessage({
-        type:  'SHOW_NOTIFICATION',
-        title, body,
-        icon:  `${location.origin}/icons/icon-192.png`,
-        badge: `${location.origin}/icons/icon-72.png`
-      });
-    }
-  } catch(e) { console.warn('SW notification xatosi:', e); }
+    new Notification(title, { body });
+    return;
+  } catch(e) {
+    // Fallback: SW orqali
+    try {
+      const reg = await navigator.serviceWorker?.ready;
+      reg?.active?.postMessage({ type: 'SHOW_NOTIFICATION', title, body });
+    } catch(err) {}
+  }
 }
 
 // ====================================================
