@@ -177,13 +177,12 @@ async function checkAndNotify() {
 async function showQueueNotification(title, body, type) {
   return self.registration.showNotification(title, {
     body,
-    icon:               '/icons/icon-192.png',
-    badge:              '/icons/icon-72.png',
-    tag:                `queue-${type}`,
-    renotify:           true,
+    // icon olib tashlandi — yo'q fayl "kontent berkitildi" xatosi beradi
     requireInteraction: true,
-    vibrate:            [300, 100, 300, 100, 300],
-    data:               { type, url: '/' },
+    tag:      `queue-${type}`,
+    renotify: true,
+    vibrate:  [300, 100, 300, 100, 300],
+    data:     { type, url: '/' },
     actions: [
       { action: 'open',    title: '🏥 Sahifani ochish' },
       { action: 'dismiss', title: '✕ Yopish' }

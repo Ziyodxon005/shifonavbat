@@ -252,14 +252,15 @@ async function showNativeNotification(title, body) {
   try {
     const swReg = await navigator.serviceWorker?.ready;
     if (swReg) {
+      // icon yo'q qilinadi — "kontent berkitildi" xatosini oldini olish
       await swReg.showNotification(title, {
-        body, icon: '/icons/icon-192.png',
-        badge: '/icons/icon-72.png',
+        body,
         requireInteraction: true,
-        vibrate: [400, 100, 400, 100, 600]
+        vibrate: [400, 100, 400, 100, 600],
+        tag: 'shifo-queue'
       });
     } else {
-      new Notification(title, { body, icon: '/icons/icon-192.png' });
+      new Notification(title, { body });
     }
   } catch(e) { console.warn('Notification xatosi:', e); }
 }
@@ -534,6 +535,11 @@ function showTicket(data) {
   }
 
   ticketModal?.classList.add('active');
+
+  // ✅ Avtomatik PNG yuklab olish (QR generatsiya bo'lgandan keyin)
+  setTimeout(() => {
+    window.downloadTicket();
+  }, 1800);
 }
 
 window.closeTicketModal = function () {
