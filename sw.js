@@ -13,7 +13,7 @@ const CACHE_FILES = ['/index.html', '/style.css', '/app.js'];
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(CACHE_FILES).catch(() => {}))
+    caches.open(CACHE).then(c => c.addAll(CACHE_FILES).catch(() => { }))
   );
 });
 
@@ -36,7 +36,7 @@ self.addEventListener('push', (event) => {
     const data = event.data?.json();
     title = data?.notification?.title || data?.title || title;
     body = data?.notification?.body || data?.body || '';
-  } catch (e) {}
+  } catch (e) { }
 
   // Agar bo'sh push bo'lsa (Firebase keepalive) — yashirincha show+close
   if (!body && title === 'ShifoNavbat') {
@@ -56,7 +56,8 @@ self.addEventListener('push', (event) => {
       body,
       icon: `${self.location.origin}/icons/icon-192.png`,
       badge: `${self.location.origin}/icons/icon-72.png`,
-      tag: 'shifo-push'
+      tag: 'shifo-push',
+      visibility: 'public'
     })
   );
 });
@@ -122,6 +123,7 @@ self.addEventListener('message', (event) => {
         requireInteraction: true,
         vibrate: [400, 100, 400, 100, 600],
         tag: 'shifo-queue',
+        visibility: 'public',
         renotify: true,
         data: { url: `${self.location.origin}/index.html` }
       })
@@ -134,7 +136,7 @@ self.addEventListener('message', (event) => {
         if (self.registration.periodicSync) {
           return self.registration.periodicSync
             .register('check-queue', { minInterval: 60_000 })
-            .catch(() => {});
+            .catch(() => { });
         }
       })
     );
@@ -176,6 +178,7 @@ async function checkAndNotify() {
         requireInteraction: true,
         vibrate: [400, 100, 400, 100, 600],
         tag: 'queue-turn',
+        visibility: 'public',
         data: { url: `${self.location.origin}/index.html` }
       });
       await idbSet('myQueue', { ...saved, notifiedTurn: true });
@@ -190,6 +193,7 @@ async function checkAndNotify() {
         requireInteraction: true,
         vibrate: [300, 100, 300],
         tag: 'queue-approaching',
+        visibility: 'public',
         data: { url: `${self.location.origin}/index.html` }
       });
       await idbSet('myQueue', { ...saved, notified3: true });
