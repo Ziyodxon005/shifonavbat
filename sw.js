@@ -145,7 +145,8 @@ async function checkAndNotify() {
         requireInteraction: true,
         vibrate: [400, 100, 400, 100, 600],
         tag: 'queue-turn',
-        data: { url: `${self.location.origin}/index.html` }
+        data: { url: `${self.location.origin}` }
+        // data: { url: `${self.location.origin}/index.html` }
       });
       await idbSet('myQueue', { ...saved, notifiedTurn: true });
       return;
@@ -159,7 +160,8 @@ async function checkAndNotify() {
         requireInteraction: true,
         vibrate: [300, 100, 300],
         tag: 'queue-approaching',
-        data: { url: `${self.location.origin}/index.html` }
+        data: { url: `${self.location.origin}` }
+        // data: { url: `${self.location.origin}/index.html` }
       });
       await idbSet('myQueue', { ...saved, notified3: true });
     }
