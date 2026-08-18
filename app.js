@@ -114,20 +114,12 @@ window.askNotifPermission = async function () {
     showToast('⚠️', 'Qo\'llab-quvvatlanmaydi', 'Brauzeringiz bildirishnomani qo\'llab-quvvatlamaydi', 'warning');
     return;
   }
-
   try {
     const perm = await Notification.requestPermission();
     if (perm === 'granted') {
       showToast('✅', 'Ruxsat berildi!', 'Bildirishnomalar yoqildi', 'success');
-
-      // FCM token olish
-      if (messaging) {
-        try {
-          currentFCMToken = await messaging.getToken({ vapidKey: VAPID_KEY });
-        } catch(e) { console.warn('FCM token:', e.message); }
-      }
-
-      // Test bildirishnoma
+      // FCM token OLINMAYDI — server key yo'q, FCM push ishlatilmaydi
+      // getToken() chaqirilsa Firebase ichki push yuboradi → "Kontent berkitildi"
       await showNativeNotification('✅ ShifoNavbat', 'Bildirishnomalar muvaffaqiyatli yoqildi!');
     } else {
       showToast('⚠️', 'Ruxsat berilmadi', 'Bildirishnomalar bloklanib qolishi mumkin', 'warning');

@@ -31,6 +31,40 @@ self.addEventListener('activate', (event) => {
 });
 
 // ====================================================
+// PUSH EVENT — Firebase ichki push larini ushlash
+// Bu handler bo'lmasa Chrome "Kontent berkitildi" chiqaradi!
+// Eski FCM subscription dan kelgan push larni ham ushlaydi.
+// ====================================================
+self.addEventListener('push', (event) => {
+  event.waitUntil((async () => {
+    let payload = {};
+    try { payload = event.data?.json() ?? {}; } catch(e) {}
+
+    // Agar bizning real xabar bo'lsa — ko'rsatamiz
+    if (payload?.notification?.title) {
+      await self.registration.showNotification(payload.notification.title, {
+        body:  payload.notification.body || '',
+        icon:  `${self.location.origin}/icons/icon-192.png`,
+        badge: `${self.location.origin}/icons/icon-72.png`,
+        tag:   'push-notification'
+      });
+      return;
+    }
+
+    // Firebase ichki push (keepalive, token refresh) —
+    // Ko'rsatmaslik, lekin Chrome fallback ni oldini olish uchun
+    // showNotification chaqirib darhol yopamiz
+    await self.registration.showNotification(' ', {
+      tag:    'push-internal',
+      silent: true,
+      body:   ' '
+    });
+    const notes = await self.registration.getNotifications({ tag: 'push-internal' });
+    notes.forEach(n => n.close());
+  })());
+});
+
+// ====================================================
 // INDEXEDDB — Navbat ma'lumotini saqlash
 // ====================================================
 const IDB_NAME = 'shifonavbat-db';
@@ -145,8 +179,7 @@ async function checkAndNotify() {
         requireInteraction: true,
         vibrate: [400, 100, 400, 100, 600],
         tag: 'queue-turn',
-        data: { url: `${self.location.origin}` }
-        // data: { url: `${self.location.origin}/index.html` }
+        data: { url: `${self.location.origin}/index.html` }
       });
       await idbSet('myQueue', { ...saved, notifiedTurn: true });
       return;
@@ -160,8 +193,7 @@ async function checkAndNotify() {
         requireInteraction: true,
         vibrate: [300, 100, 300],
         tag: 'queue-approaching',
-        data: { url: `${self.location.origin}` }
-        // data: { url: `${self.location.origin}/index.html` }
+        data: { url: `${self.location.origin}/index.html` }
       });
       await idbSet('myQueue', { ...saved, notified3: true });
     }
