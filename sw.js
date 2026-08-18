@@ -29,70 +29,70 @@ self.addEventListener('activate', (event) => {
 // PUSH EVENT — eski FCM subscriptiondan kelgan pushlarni ushlash
 // Bu handler bo'lmasa Chrome "Kontent berkitildi" chiqaradi
 // ====================================================
-// self.addEventListener('push', (event) => {
-//   let title = 'ShifoNavbat';
-//   let body = '';
-//   try {
-//     const data = event.data?.json();
-//     title = data?.notification?.title || data?.title || title;
-//     body = data?.notification?.body || data?.body || '';
-//   } catch (e) { }
+self.addEventListener('push', (event) => {
+  let title = 'ShifoNavbat';
+  let body = '';
+  try {
+    const data = event.data?.json();
+    title = data?.notification?.title || data?.title || title;
+    body = data?.notification?.body || data?.body || '';
+  } catch (e) { }
 
-//   // Agar bo'sh push bo'lsa (Firebase keepalive) — yashirincha show+close
-//   if (!body && title === 'ShifoNavbat') {
-//     event.waitUntil(
-//       self.registration.showNotification(' ', {
-//         tag: 'internal-silent',
-//         silent: true
-//       }).then(() =>
-//         self.registration.getNotifications({ tag: 'internal-silent' })
-//       ).then(notes => notes.forEach(n => n.close()))
-//     );
-//     return;
-//   }
+  // Agar bo'sh push bo'lsa (Firebase keepalive) — yashirincha show+close
+  if (!body && title === 'ShifoNavbat') {
+    event.waitUntil(
+      self.registration.showNotification(' ', {
+        tag: 'internal-silent',
+        silent: true
+      }).then(() =>
+        self.registration.getNotifications({ tag: 'internal-silent' })
+      ).then(notes => notes.forEach(n => n.close()))
+    );
+    return;
+  }
 
-//   event.waitUntil(
-//     self.registration.showNotification(title, {
-//       body,
-//       icon: `${self.location.origin}/icons/icon-192.png`,
-//       badge: `${self.location.origin}/icons/icon-72.png`,
-//       tag: 'shifo-push',
-//       visibility: 'public'
-//     })
-//   );
-// });
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: `${self.location.origin}/icons/icon-192.png`,
+      badge: `${self.location.origin}/icons/icon-72.png`,
+      tag: 'shifo-push',
+      visibility: 'public'
+    })
+  );
+});
 
 // ====================================================
 // PUSH EVENT — Chrome taqiqini aylanib o'tuvchi kod
 // ====================================================
-self.addEventListener('push', (event) => {
-  event.waitUntil(
-    (async () => {
-      let title = 'ShifoNavbat';
-      let body = 'Navbatingiz holati yangilandi';
+// self.addEventListener('push', (event) => {
+//   event.waitUntil(
+//     (async () => {
+//       let title = 'ShifoNavbat';
+//       let body = 'Navbatingiz holati yangilandi';
 
-      if (event.data) {
-        try {
-          const data = event.data.json();
-          title = data?.notification?.title || data?.title || title;
-          body = data?.notification?.body || data?.body || body;
-        } catch (e) {
-          body = event.data.text() || body;
-        }
-      }
+//       if (event.data) {
+//         try {
+//           const data = event.data.json();
+//           title = data?.notification?.title || data?.title || title;
+//           body = data?.notification?.body || data?.body || body;
+//         } catch (e) {
+//           body = event.data.text() || body;
+//         }
+//       }
 
-      // Chrome talabi: showNotification har doim va majburiy bajarilishi SHART!
-      return self.registration.showNotification(title, {
-        body: body,
-        icon: '/icons/icon-192.png',
-        badge: '/icons/icon-72.png',
-        tag: 'shifo-queue-push-' + Date.now(), // Takrorlanmas tag
-        renotify: true,
-        vibrate: [200, 100, 200]
-      });
-    })()
-  );
-});
+//       // Chrome talabi: showNotification har doim va majburiy bajarilishi SHART!
+//       return self.registration.showNotification(title, {
+//         body: body,
+//         icon: '/icons/icon-192.png',
+//         badge: '/icons/icon-72.png',
+//         tag: 'shifo-queue-push-' + Date.now(), // Takrorlanmas tag
+//         renotify: true,
+//         vibrate: [200, 100, 200]
+//       });
+//     })()
+//   );
+// });
 
 // ====================================================
 // INDEXEDDB
