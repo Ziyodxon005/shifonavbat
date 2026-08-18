@@ -1,23 +1,23 @@
 // ====================================================
-// APP.JS — Bemor Sahifasi (YANGI DIZAYN BILAN MOS)
+// APP.JS — Bemor Sahifasi
 // ShifoNavbat — Real-time Queue System
 // ====================================================
 
 import { firebaseConfig, VAPID_KEY } from './firebase-config.js';
 
-// === FIREBASE INIT (xatolikni ushlash bilan) ===
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 let messaging = null;
-try { messaging = firebase.messaging(); } catch(e) { console.warn('FCM yo\'q:', e); }
+try { messaging = firebase.messaging(); } catch(e) {}
 
-// === GLOBAL STATE ===
 let selectedDoctor   = null;
 let selectedDoctorId = null;
 let currentFCMToken  = null;
+let myQueueNumber    = null;  // Bemorning o'z navbat raqami
+let myDoctorId       = null;  // Bemorning shifokor ID si
 
-// === DOM ===
+// DOM
 const doctorsGrid    = document.getElementById('doctorsGrid');
 const queueSection   = document.getElementById('queueSection');
 const loadingOverlay = document.getElementById('loadingOverlay');
@@ -30,40 +30,34 @@ const headerTime     = document.getElementById('headerTime');
 // ====================================================
 window.addEventListener('DOMContentLoaded', async () => {
   startClock();
-
-  // SW va bildirishnoma (xato bo'lsa ham davom et)
   try { await initServiceWorker(); } catch(e) {}
   try { await requestNotificationPermission(); } catch(e) {}
-
   loadDoctors();
-  loadStats();
 
-  // QR scan orqali kirish
-  const params   = new URLSearchParams(window.location.search);
-  const queueId  = params.get('queue');
-  const doctorId = params.get('doctor');
-  if (queueId && doctorId) {
-    try { await showQueueFromUrl(doctorId, queueId); } catch(e) {}
+  // QR scan orqali
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('queue') && params.get('doctor')) {
+    try { await showQueueFromUrl(params.get('doctor'), params.get('queue')); } catch(e) {}
   }
 
-  // Loading yopish
+  // localStorage dan navbat ma'lumoti (sayt qayta ochilsa)
+  restoreMyQueue();
+
   setTimeout(() => {
-    if (loadingOverlay) loadingOverlay.classList.add('hidden');
-  }, 1000);
+    loadingOverlay?.classList.add('hidden');
+  }, 900);
 });
 
 // ====================================================
 // SOAT
 // ====================================================
 function startClock() {
-  function update() {
+  const update = () => {
     const now = new Date();
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-    if (headerTime) headerTime.textContent = `${h}:${m}`;
-  }
-  update();
-  setInterval(update, 1000);
+    if (headerTime) headerTime.textContent =
+      `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  };
+  update(); setInterval(update, 1000);
 }
 
 // ====================================================
@@ -71,46 +65,101 @@ function startClock() {
 // ====================================================
 async function initServiceWorker() {
   if ('serviceWorker' in navigator) {
-    await navigator.serviceWorker.register('/sw.js');
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    console.log('✅ SW ro\'yxatdan o\'tdi');
+    return reg;
   }
 }
 
 // ====================================================
-// PUSH BILDIRISHNOMA RUXSATI
+// BILDIRISHNOMA RUXSATI
 // ====================================================
 async function requestNotificationPermission() {
-  if (!messaging) return;
-  const permission = await Notification.requestPermission();
-  if (permission === 'granted') {
-    const token = await messaging.getToken({ vapidKey: VAPID_KEY });
-    currentFCMToken = token;
-    console.log('📱 FCM Token:', token?.substring(0, 20) + '...');
+  if (!('Notification' in window)) return;
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') return;
+
+  if (messaging) {
+    try {
+      const token = await messaging.getToken({ vapidKey: VAPID_KEY });
+      currentFCMToken = token;
+      console.log('📱 FCM Token olindi');
+    } catch(e) {
+      console.warn('FCM token xatosi:', e.message);
+    }
   }
 }
 
-// Foreground bildirishnomalar
+// Foreground xabarlar
 if (messaging) {
-  messaging.onMessage((payload) => {
+  messaging.onMessage(payload => {
     const { title, body } = payload.notification || {};
     const type = payload.data?.type;
-    const icon = type === 'turn' ? '🔔' : type === 'approaching' ? '⏰' : 'ℹ️';
-    showToast(icon, title || 'ShifoNavbat', body || '', type === 'turn' ? 'warning' : 'info', 8000);
+    showToast(
+      type === 'turn' ? '🔔' : '⏰',
+      title || 'ShifoNavbat',
+      body || '',
+      type === 'turn' ? 'warning' : 'info',
+      8000
+    );
   });
 }
 
 // ====================================================
-// STATISTIKA
+// DB-BASED BILDIRISHNOMALAR (FCM server key shart emas)
 // ====================================================
-function loadStats() {
-  db.ref('doctors').on('value', snap => {
-    const docs = snap.val() || {};
-    const el1 = document.getElementById('totalDoctors');
-    const el2 = document.getElementById('totalQueues');
-    if (el1) el1.textContent = Object.keys(docs).length;
-    let total = 0;
-    Object.values(docs).forEach(d => { total += (d.totalQueues || 0); });
-    if (el2) el2.textContent = total;
+function watchMyQueue(doctorId, queueNum) {
+  myQueueNumber = queueNum;
+  myDoctorId    = doctorId;
+
+  // localStorage ga saqlash
+  localStorage.setItem('myQueue', JSON.stringify({ doctorId, queueNum }));
+
+  // Shifokorning joriy navbatini kuzatish
+  db.ref(`doctors/${doctorId}/currentQueue`).on('value', snap => {
+    const current = snap.val() || 0;
+    const remaining = queueNum - current;
+
+    if (remaining <= 0) return; // Allaqachon o'tgan
+
+    // 3 ta qolganda
+    if (remaining === 3) {
+      showNativeNotification('⏰ Navbatingiz Yaqinlashdi!',
+        `Sizdan oldin ${remaining} kishi qoldi. Tayyor bo'ling!`);
+      showToast('⏰', 'Navbatingiz Yaqinlashdi!',
+        `Sizdan oldin ${remaining} kishi qoldi`, 'warning', 8000);
+    }
+
+    // Navbat kelganda
+    if (remaining === 1) {
+      showNativeNotification('🔔 KEYINGI NAVBAT SIZDA!',
+        `Dr. ${selectedDoctor?.name || ''}. Hoziroq kiring!`);
+      showToast('🔔', 'Navbatingiz keldi!',
+        'Hoziroq kirish xonasiga keling!', 'warning', 12000);
+    }
   });
+}
+
+function restoreMyQueue() {
+  try {
+    const saved = localStorage.getItem('myQueue');
+    if (saved) {
+      const { doctorId, queueNum } = JSON.parse(saved);
+      watchMyQueue(doctorId, queueNum);
+    }
+  } catch(e) {}
+}
+
+function showNativeNotification(title, body) {
+  if (Notification.permission === 'granted') {
+    new Notification(title, {
+      body,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-72.png',
+      requireInteraction: true,
+      vibrate: [200, 100, 200]
+    });
+  }
 }
 
 // ====================================================
@@ -140,7 +189,7 @@ function loadDoctors() {
 }
 
 // ====================================================
-// SHIFOKOR KARTASI (yangi CSS bilan)
+// SHIFOKOR KARTASI
 // ====================================================
 function createDoctorCard(id, doc) {
   const icons = {
@@ -148,7 +197,6 @@ function createDoctorCard(id, doc) {
     'Kardiolog':'❤️','Pediatr':'👶','Oftalmolog':'👁️',
     'Ortoped':'🦴','Xirurg':'🔬','Umumiy':'👨‍⚕️'
   };
-
   const icon    = icons[doc.specialty] || '👨‍⚕️';
   const waiting = Math.max(0, (doc.totalQueues || 0) - (doc.currentQueue || 0));
   const card    = document.createElement('div');
@@ -173,82 +221,63 @@ function createDoctorCard(id, doc) {
 // SHIFOKOR TANLASH
 // ====================================================
 function selectDoctor(id, doc) {
-  // Eski tanlashni olib tashlash
   document.querySelectorAll('.doc-card').forEach(c => c.classList.remove('selected'));
   document.getElementById(`doctor-${id}`)?.classList.add('selected');
 
   selectedDoctor   = doc;
   selectedDoctorId = id;
 
-  // Section header
   const tag   = document.getElementById('selectedSpecTag');
   const title = document.getElementById('selectedDoctorTitle');
-  if (tag)   tag.textContent   = `${doc.specialty}`;
+  if (tag)   tag.textContent   = doc.specialty;
   if (title) title.textContent = `Dr. ${doc.name}`;
 
-  // Queue section ko'rsatish
-  if (queueSection) {
-    queueSection.classList.add('visible');
-    setTimeout(() => {
-      queueSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
-  }
-
-  // Real-time queue
+  queueSection?.classList.add('visible');
+  setTimeout(() => queueSection?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
   loadQueueData(id);
 }
 
 // ====================================================
-// NAVBAT MA'LUMOTLARINI YUKLASH
+// NAVBAT MA'LUMOTLARI
 // ====================================================
 function loadQueueData(doctorId) {
   db.ref(`doctors/${doctorId}`).on('value', snap => {
-    const doc = snap.val();
-    if (!doc) return;
-
+    const doc = snap.val(); if (!doc) return;
     const current = doc.currentQueue || 0;
     const total   = doc.totalQueues  || 0;
     const waiting = Math.max(0, total - current);
 
-    const elCurrent  = document.getElementById('currentQueueDisplay');
-    const elTotal    = document.getElementById('totalQueueCount');
-    const elWaiting  = document.getElementById('waitingCount');
-    const elNext     = document.getElementById('nextQueueNum');
-    const elDocName  = document.getElementById('queueDoctorName');
-
-    if (elCurrent) elCurrent.textContent = current > 0 ? current : '—';
-    if (elTotal)   elTotal.textContent   = total;
-    if (elWaiting) elWaiting.textContent = waiting;
-    if (elNext)    elNext.textContent    = total > 0 ? total + 1 : 1;
-    if (elDocName) elDocName.textContent = `DR. ${doc.name?.toUpperCase()}`;
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    set('currentQueueDisplay', current > 0 ? current : '—');
+    set('totalQueueCount',  total);
+    set('waitingCount',     waiting);
+    set('queueDoctorName',  `DR. ${doc.name?.toUpperCase()}`);
   });
 
   db.ref(`queues/${doctorId}`).on('value', snap => {
-    const queues = snap.val() || {};
-    const total  = Object.keys(queues).length;
-    const elNext = document.getElementById('nextQueueNum');
-    if (elNext)   elNext.textContent = total + 1;
+    const q = snap.val() || {};
+    const el = document.getElementById('nextQueueNum');
+    if (el) el.textContent = Object.keys(q).length + 1;
   });
 }
 
 // ====================================================
-// ISM MODALI OCHISH / YOPISH
+// NAVBAT OLISH — MODAL
 // ====================================================
 window.openNameModal = function () {
   if (!selectedDoctor) {
     showToast('⚠️', 'Tanlang', 'Avval shifokor tanlang!', 'warning');
     return;
   }
-  if (nameModal) nameModal.classList.add('active');
+  nameModal?.classList.add('active');
   setTimeout(() => document.getElementById('patientFirstName')?.focus(), 300);
 };
 
 window.closeNameModal = function () {
-  if (nameModal) nameModal.classList.remove('active');
+  nameModal?.classList.remove('active');
 };
 
-// ENTER bilan yuborish
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     window.closeNameModal?.();
     window.closeTicketModal?.();
@@ -256,68 +285,63 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ====================================================
-// NAVBAT OLISH — TASDIQLASH
+// NAVBAT TASDIQLASH
 // ====================================================
 window.confirmQueue = async function () {
-  const firstName = document.getElementById('patientFirstName')?.value.trim();
-  const lastName  = document.getElementById('patientLastName')?.value.trim();
-  const phone     = document.getElementById('patientPhone')?.value.trim();
+  const first  = document.getElementById('patientFirstName')?.value.trim();
+  const last   = document.getElementById('patientLastName')?.value.trim();
+  const phone  = document.getElementById('patientPhone')?.value.trim();
 
-  if (!firstName || !lastName) {
-    showToast('⚠️', 'To\'ldiring', 'Ism va familya majburiy!', 'warning');
-    return;
+  if (!first || !last) {
+    showToast('⚠️', 'To\'ldiring', 'Ism va familya majburiy!', 'warning'); return;
   }
   if (!selectedDoctorId) {
-    showToast('⚠️', 'Tanlang', 'Avval shifokor tanlang!', 'warning');
-    return;
+    showToast('⚠️', 'Tanlang', 'Avval shifokor tanlang!', 'warning'); return;
   }
 
   const btn = document.getElementById('confirmQueueBtn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Saqlanmoqda...'; }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Saqlanmoqda...'; }
 
   try {
-    const fullName = `${firstName} ${lastName}`;
+    const fullName = `${first} ${last}`;
     const now      = new Date();
     const date     = now.toLocaleDateString('uz-UZ');
     const time     = now.toLocaleTimeString('uz-UZ', { hour:'2-digit', minute:'2-digit' });
 
-    // Navbat raqamini olish
-    const queueSnap = await db.ref(`queues/${selectedDoctorId}`).once('value');
-    const existing  = queueSnap.val() || {};
-    const queueNum  = Object.keys(existing).length + 1;
+    // Navbat raqami
+    const snap = await db.ref(`queues/${selectedDoctorId}`).once('value');
+    const queueNum = Object.keys(snap.val() || {}).length + 1;
 
     // Firebase ga yozish
     const newRef = db.ref(`queues/${selectedDoctorId}`).push();
     await newRef.set({
       name: fullName, phone: phone || '',
-      queueNumber: queueNum,
-      date, time,
+      queueNumber: queueNum, date, time,
       fcmToken: currentFCMToken || '',
       status: 'waiting',
       createdAt: firebase.database.ServerValue.TIMESTAMP
     });
 
-    // Doctor total ni yangilash
     await db.ref(`doctors/${selectedDoctorId}/totalQueues`).set(queueNum);
 
-    // Modal yopish
     window.closeNameModal();
 
-    // Ticket ko'rsatish
+    // Navbatni kuzatishni boshlash (DB-based notification)
+    watchMyQueue(selectedDoctorId, queueNum);
+
     showTicket({
       queueNumber: queueNum,
-      name: fullName,
+      name:       fullName,
       doctorName: selectedDoctor.name,
       specialty:  selectedDoctor.specialty,
       date, time,
-      doctorId:  selectedDoctorId,
-      queueId:   newRef.key
+      doctorId:   selectedDoctorId,
+      queueId:    newRef.key
     });
 
     showToast('🎉', 'Navbat Olindi!', `Siz №${queueNum} navbatdasiz`, 'success', 5000);
 
   } catch (err) {
-    console.error('Navbat olishda xato:', err);
     showToast('❌', 'Xato', err.message || 'Qaytadan urinib ko\'ring', 'error');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '✅ Navbat Olish'; }
@@ -327,16 +351,19 @@ window.confirmQueue = async function () {
 // ====================================================
 // TICKET KO'RSATISH
 // ====================================================
+let currentTicketData = null;
+
 function showTicket(data) {
-  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-  setEl('ticketNumber', `№${data.queueNumber}`);
-  setEl('ticketName',   data.name);
-  setEl('ticketDoctor', `${data.specialty} — Dr. ${data.doctorName}`);
-  setEl('ticketDate',   data.date);
-  setEl('ticketTime',   data.time);
+  currentTicketData = data;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('ticketNumber', `№${data.queueNumber}`);
+  set('ticketName',   data.name);
+  set('ticketDoctor', `${data.specialty} — Dr. ${data.doctorName}`);
+  set('ticketDate',   data.date);
+  set('ticketTime',   data.time);
 
   // QR Code
-  const qrUrl     = `${window.location.origin}${window.location.pathname}?doctor=${data.doctorId}&queue=${data.queueId}`;
+  const qrUrl = `${window.location.origin}${window.location.pathname}?doctor=${data.doctorId}&queue=${data.queueId}`;
   const qrWrapper = document.getElementById('qrWrapper');
   if (qrWrapper) {
     qrWrapper.innerHTML = '';
@@ -347,70 +374,187 @@ function showTicket(data) {
     });
   }
 
-  if (ticketModal) ticketModal.classList.add('active');
-
-  // PNG avtomatik yuklash (1.5 soniyadan keyin)
-  setTimeout(() => autoDownload(), 1500);
+  ticketModal?.classList.add('active');
 }
 
-// ====================================================
-// TICKET YOPISH
-// ====================================================
 window.closeTicketModal = function () {
-  if (ticketModal) ticketModal.classList.remove('active');
+  ticketModal?.classList.remove('active');
 };
 
 // ====================================================
-// PNG SAQLASH
+// TICKET PNG — Canvas API bilan chiroyli chizish
 // ====================================================
 window.downloadTicket = async function () {
-  const card = document.getElementById('ticketCard');
-  if (!card || typeof html2canvas === 'undefined') return;
-  try {
-    const canvas = await html2canvas(card, {
-      scale: 2, useCORS: true, backgroundColor: '#ffffff'
-    });
-    const link      = document.createElement('a');
-    link.download   = `shifonavbat-navbat-${Date.now()}.png`;
-    link.href       = canvas.toDataURL('image/png');
-    link.click();
-  } catch(e) { console.error('PNG saqlashda xato:', e); }
+  if (!currentTicketData) return;
+  const data = currentTicketData;
+
+  const W = 420, H = 600;
+  const canvas = document.createElement('canvas');
+  canvas.width  = W * 2;  // Retina
+  canvas.height = H * 2;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(2, 2);
+
+  // — Soya —
+  ctx.shadowColor = 'rgba(0,0,0,0.12)';
+  ctx.shadowBlur  = 24;
+  ctx.shadowOffsetY = 4;
+
+  // — Oq karta fon —
+  roundRect(ctx, 10, 10, W - 20, H - 20, 20);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+
+  // — Indigo header —
+  const headerH = 90;
+  ctx.save();
+  roundRect(ctx, 10, 10, W - 20, headerH, { tl:20, tr:20, bl:0, br:0 });
+  const grad = ctx.createLinearGradient(10, 10, W - 10, headerH + 10);
+  grad.addColorStop(0, '#4f46e5');
+  grad.addColorStop(1, '#7c3aed');
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.restore();
+
+  // — Logo emoji —
+  ctx.font = '28px serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('🏥', 28, 56);
+
+  // — Brand nomi —
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.font = 'bold 18px Inter, Arial, sans-serif';
+  ctx.fillText('ShifoNavbat', 64, 48);
+
+  // — Quyi taglik —
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '11px Inter, Arial, sans-serif';
+  ctx.fillText('Shifoxona Onlayn Navbat Tizimi', 64, 65);
+
+  // — Navbat label —
+  ctx.fillStyle = '#9ca3af';
+  ctx.font = '700 10px Inter, Arial, sans-serif';
+  ctx.letterSpacing = '1px';
+  ctx.fillText('NAVBAT RAQAMI', 28, 122);
+
+  // — Katta navbat raqami —
+  ctx.fillStyle = '#111827';
+  ctx.font = '900 72px Inter, Arial, sans-serif';
+  ctx.fillText(`№${data.queueNumber}`, 28, 198);
+
+  // — Bemor ismi —
+  ctx.fillStyle = '#111827';
+  ctx.font = '700 17px Inter, Arial, sans-serif';
+  ctx.fillText(data.name, 28, 232);
+
+  // — Shifokor —
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '400 13px Inter, Arial, sans-serif';
+  ctx.fillText(`${data.specialty} — Dr. ${data.doctorName}`, 28, 252);
+
+  // — Chiziq (dashed) —
+  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(28, 272);
+  ctx.lineTo(W - 28, 272);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // — Sana va vaqt —
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '500 12px Inter, Arial, sans-serif';
+  ctx.fillText(`📅  ${data.date}`, 28, 296);
+  ctx.fillText(`🕐  ${data.time}`, 160, 296);
+
+  // — QR code —
+  const qrCanvas = document.querySelector('#qrWrapper canvas');
+  if (qrCanvas) {
+    const qrSize = 110;
+    const qrX = W - qrSize - 28;
+    const qrY = 310;
+
+    // QR fon
+    ctx.fillStyle = '#f9fafb';
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, qrX - 6, qrY - 6, qrSize + 12, qrSize + 12, 8);
+    ctx.fill(); ctx.stroke();
+
+    ctx.drawImage(qrCanvas, qrX, qrY, qrSize, qrSize);
+
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '10px Inter, Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('QR ni skanerlang', qrX + qrSize/2, qrY + qrSize + 18);
+    ctx.textAlign = 'left';
+  }
+
+  // — Pastki ma'lumot —
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '12px Inter, Arial, sans-serif';
+  ctx.fillText('Navbatga kelmasa, o\'rni berilmaydi.', 28, 360);
+
+  // — Footer bar —
+  roundRect(ctx, 10, H - 54, W - 20, 44, { tl:0, tr:0, bl:20, br:20 });
+  ctx.fillStyle = '#f9fafb';
+  ctx.fill();
+
+  ctx.fillStyle = '#9ca3af';
+  ctx.font = '10px Inter, Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('ShifoNavbat © 2026 — Sog\'ligingizga e\'tiborli bo\'ling!', W / 2, H - 28);
+  ctx.textAlign = 'left';
+
+  // — Yuklab olish —
+  const link    = document.createElement('a');
+  link.download = `navbat-${data.queueNumber}-${data.name.replace(/\s/g,'-')}.png`;
+  link.href     = canvas.toDataURL('image/png');
+  link.click();
 };
 
-async function autoDownload() {
-  try { await window.downloadTicket(); } catch(e) {}
+// Canvas yordamchi — rounded rect
+function roundRect(ctx, x, y, w, h, r) {
+  if (typeof r === 'number') r = { tl:r, tr:r, bl:r, br:r };
+  ctx.beginPath();
+  ctx.moveTo(x + r.tl, y);
+  ctx.lineTo(x + w - r.tr, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r.tr);
+  ctx.lineTo(x + w, y + h - r.br);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r.br, y + h);
+  ctx.lineTo(x + r.bl, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r.bl);
+  ctx.lineTo(x, y + r.tl);
+  ctx.quadraticCurveTo(x, y, x + r.tl, y);
+  ctx.closePath();
 }
 
 // ====================================================
-// QR DAN NAVBATNI KO'RSATISH
+// QR DAN NAVBAT TIKLANISH
 // ====================================================
 async function showQueueFromUrl(doctorId, queueId) {
-  const [docSnap, queueSnap] = await Promise.all([
+  const [dSnap, qSnap] = await Promise.all([
     db.ref(`doctors/${doctorId}`).once('value'),
     db.ref(`queues/${doctorId}/${queueId}`).once('value')
   ]);
-  const doc   = docSnap.val();
-  const queue = queueSnap.val();
-  if (!doc || !queue) return;
+  const doc = dSnap.val(), q = qSnap.val();
+  if (!doc || !q) return;
 
   showTicket({
-    queueNumber: queue.queueNumber,
-    name:        queue.name,
-    doctorName:  doc.name,
-    specialty:   doc.specialty,
-    date:        queue.date,
-    time:        queue.time,
-    doctorId, queueId
+    queueNumber: q.queueNumber, name: q.name,
+    doctorName:  doc.name,     specialty: doc.specialty,
+    date: q.date, time: q.time, doctorId, queueId
   });
 }
 
 // ====================================================
-// TOAST BILDIRISHNOMALAR
+// TOAST
 // ====================================================
 function showToast(icon, title, message, type = 'info', duration = 4000) {
   const container = document.getElementById('toastContainer');
   if (!container) return;
-
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
   toast.innerHTML = `
@@ -419,16 +563,12 @@ function showToast(icon, title, message, type = 'info', duration = 4000) {
       <div class="toast-title">${title}</div>
       ${message ? `<div class="toast-msg">${message}</div>` : ''}
     </div>`;
-
   container.appendChild(toast);
   toast.addEventListener('click', () => removeToast(toast));
   setTimeout(() => removeToast(toast), duration);
 }
-
 function removeToast(toast) {
   toast.classList.add('hiding');
   setTimeout(() => toast.remove(), 300);
 }
-
-// Global uchun
 window.showToast = showToast;
