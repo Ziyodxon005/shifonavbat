@@ -81,6 +81,7 @@ async function initServiceWorker() {
   if ('serviceWorker' in navigator) {
     const reg = await navigator.serviceWorker.register('/sw.js');
     console.log('✅ SW ro\'yxatdan o\'tdi');
+    reg.update();
     return reg;
   }
 }
