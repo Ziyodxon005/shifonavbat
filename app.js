@@ -159,17 +159,18 @@ function watchMyQueue(doctorId, queueNum) {
   myQueueNumber = queueNum;
   myDoctorId    = doctorId;
 
-  // localStorage ga saqlash
+  // localStorage ga saqlash (sahifa ochiq bo'lganda)
   localStorage.setItem('myQueue', JSON.stringify({ doctorId, queueNum }));
 
-  // Shifokorning joriy navbatini kuzatish
+  // ✅ SW ga ma'lumot yuborish (sayt yopilsa ham ishlaydi)
+  sendQueueToSW(doctorId, queueNum);
+
+  // Sahifa ochiq bo'lganda — Firebase listener
   db.ref(`doctors/${doctorId}/currentQueue`).on('value', snap => {
-    const current = snap.val() || 0;
+    const current   = snap.val() || 0;
     const remaining = queueNum - current;
+    if (remaining <= 0) return;
 
-    if (remaining <= 0) return; // Allaqachon o'tgan
-
-    // 3 ta qolganda
     if (remaining === 3) {
       showNativeNotification('⏰ Navbatingiz Yaqinlashdi!',
         `Sizdan oldin ${remaining} kishi qoldi. Tayyor bo'ling!`);
@@ -177,15 +178,31 @@ function watchMyQueue(doctorId, queueNum) {
         `Sizdan oldin ${remaining} kishi qoldi`, 'warning', 8000);
     }
 
-    // Navbat kelganda
     if (remaining === 1) {
       showNativeNotification('🔔 KEYINGI NAVBAT SIZDA!',
-        `Dr. ${selectedDoctor?.name || ''}. Hoziroq kiring!`);
+        `Hoziroq kirish xonasiga keling!`);
       showToast('🔔', 'Navbatingiz keldi!',
         'Hoziroq kirish xonasiga keling!', 'warning', 12000);
     }
   });
 }
+
+// SW ga navbat ma'lumotini yuborish
+async function sendQueueToSW(doctorId, queueNum) {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if (reg?.active) {
+      reg.active.postMessage({
+        type: 'SAVE_QUEUE',
+        payload: { doctorId, queueNum }
+      });
+      console.log('📨 SW ga navbat yuborildi:', { doctorId, queueNum });
+    }
+  } catch(e) {
+    console.warn('SW postMessage xatosi:', e);
+  }
+}
+
 
 function restoreMyQueue() {
   try {
