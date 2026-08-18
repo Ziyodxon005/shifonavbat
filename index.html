@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="uz">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover" />
+  <title>ShifoNavbat — Onlayn Navbat Tizimi</title>
+  <meta name="description" content="Shifoxonada onlayn navbat oling. Tez, qulay, real-time." />
+  <meta name="theme-color" content="#4f46e5" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+  <style>
+    /* ===== HERO ===== */
+    .hero {
+      padding: clamp(48px, 10vw, 88px) 0 clamp(32px, 6vw, 48px);
+      text-align: center;
+      animation: fadeUp .6s ease both;
+    }
+
+    .hero-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 16px;
+      border-radius: 999px;
+      background: var(--white);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-2);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      margin-bottom: 24px;
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .hero h1 {
+      font-size: clamp(32px, 8vw, 60px);
+      font-weight: 900;
+      line-height: 1.08;
+      letter-spacing: -1.5px;
+      color: var(--text-1);
+      margin-bottom: 16px;
+    }
+
+    .hero h1 .gradient-text {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2), #06b6d4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      font-size: clamp(15px, 3vw, 17px);
+      color: var(--text-3);
+      max-width: 420px;
+      margin: 0 auto 36px;
+      line-height: 1.65;
+    }
+
+    /* ===== STAT CHIPS ===== */
+    .stats-row {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 52px;
+      animation: fadeUp .6s .1s ease both;
+    }
+
+    .stat-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: var(--white);
+      border: 1px solid rgba(0, 0, 0, 0.07);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .stat-chip-icon {
+      font-size: 16px;
+    }
+
+    .stat-chip-val {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-1);
+    }
+
+    .stat-chip-lbl {
+      font-size: 12px;
+      color: var(--text-3);
+    }
+
+    /* ===== DOCTORS GRID ===== */
+    .doctors-section {
+      animation: fadeUp .6s .15s ease both;
+      margin-bottom: 56px;
+    }
+
+    .doctors-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    @media(min-width:600px) {
+      .doctors-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+    }
+
+    @media(min-width:900px) {
+      .doctors-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    @media(max-width:340px) {
+      .doctors-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Doctor card */
+    .doc-card {
+      padding: 18px 14px 16px;
+      cursor: pointer;
+      border-radius: var(--r-lg);
+      position: relative;
+      background: var(--glass-bg-2);
+      backdrop-filter: var(--blur);
+      -webkit-backdrop-filter: var(--blur);
+      border: 1.5px solid rgba(255, 255, 255, 0.9);
+      box-shadow: var(--glass-shadow);
+      transition: all var(--t-bounce);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .doc-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--glass-shadow-hover);
+    }
+
+    .doc-card:active {
+      transform: scale(0.97);
+    }
+
+    .doc-card.selected {
+      background: var(--white) !important;
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12), var(--glass-shadow-hover) !important;
+    }
+
+    .doc-card.selected .doc-icon {
+      background: var(--accent-bg);
+      border-color: var(--accent-border);
+    }
+
+    .doc-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: var(--r-sm);
+      background: rgba(0, 0, 0, 0.04);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      margin-bottom: 12px;
+      transition: all var(--t-bounce);
+    }
+
+    .doc-card:hover .doc-icon {
+      transform: scale(1.1) rotate(5deg);
+    }
+
+    .doc-status-dot {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .doc-status-dot.off {
+      background: #9ca3af;
+      box-shadow: none;
+      animation: none;
+    }
+
+    .doc-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-1);
+      margin-bottom: 2px;
+      line-height: 1.3;
+    }
+
+    .doc-spec {
+      font-size: 14px;
+      color: var(--text-3);
+      margin-bottom: 12px;
+      font-weight: 500;
+    }
+
+    .doc-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .doc-waiting {
+      font-size: 11px;
+      color: var(--text-4);
+    }
+
+    .doc-num {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-bg);
+      border: 1px solid var(--accent-border);
+    }
+
+    /* ===== QUEUE SECTION ===== */
+    .queue-section {
+      display: none;
+      animation: fadeUp .45s ease both;
+      margin-bottom: 56px;
+    }
+
+    .queue-section.visible {
+      display: block;
+    }
+
+    .queue-card {
+      padding: clamp(24px, 6vw, 44px) 24px;
+      text-align: center;
+      margin-bottom: 16px;
+      background: linear-gradient(160deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7));
+      backdrop-filter: var(--blur);
+      -webkit-backdrop-filter: var(--blur);
+      border: 1.5px solid rgba(255, 255, 255, 0.95);
+      box-shadow: var(--glass-shadow);
+      border-radius: var(--r-xl);
+    }
+
+    .queue-doc-tag {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-4);
+      margin-bottom: 6px;
+    }
+
+    .queue-sub-label {
+      font-size: 13px;
+      color: var(--text-3);
+      margin-bottom: 8px;
+    }
+
+    .queue-big-num {
+      font-size: clamp(80px, 20vw, 130px);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -4px;
+      color: var(--text-1);
+      margin-bottom: 4px;
+      animation: numberPop .4s ease;
+      text-shadow: 0 4px 24px rgba(79, 70, 229, 0.15);
+    }
+
+    .queue-meta {
+      display: flex;
+      justify-content: center;
+      gap: 28px;
+      flex-wrap: wrap;
+      margin-top: 24px;
+    }
+
+    .qm-item {
+      text-align: center;
+    }
+
+    .qm-val {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--text-1);
+    }
+
+    .qm-lbl {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-top: 2px;
+    }
+
+    .take-queue-wrap {
+      text-align: center;
+      padding: 20px 0 4px;
+    }
+
+    .take-hint {
+      font-size: 12px;
+      color: var(--text-4);
+      margin-top: 10px;
+    }
+
+    /* ===== NAME MODAL ===== */
+    .nm-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+      margin-bottom: 22px;
+    }
+
+    .nm-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: var(--r-md);
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 6px 18px rgba(79, 70, 229, 0.3);
+    }
+
+    .nm-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text-1);
+    }
+
+    .nm-sub {
+      font-size: 13px;
+      color: var(--text-3);
+    }
+
+    /* ===== TICKET MODAL ===== */
+    .ticket-modal-top {
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .ticket-confetti {
+      font-size: 36px;
+      animation: logoBounce 1s ease infinite;
+    }
+
+    .ticket-modal-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-1);
+      margin: 8px 0 2px;
+    }
+
+    .ticket-modal-sub {
+      font-size: 12px;
+      color: var(--text-3);
+    }
+
+    .ticket-card {
+      background: var(--white);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    .ticket-header-bar {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ticket-brand-icon {
+      font-size: 16px;
+    }
+
+    .ticket-brand-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: white;
+      opacity: 0.95;
+    }
+
+    .ticket-body {
+      padding: 16px;
+    }
+
+    .ticket-lbl {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-4);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .ticket-num {
+      font-size: 52px;
+      font-weight: 900;
+      line-height: 1;
+      color: var(--text-1);
+      letter-spacing: -2px;
+      margin: 4px 0;
+    }
+
+    .ticket-name-txt {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-1);
+    }
+
+    .ticket-doc-txt {
+      font-size: 12px;
+      color: var(--text-3);
+      margin: 2px 0 12px;
+    }
+
+    .ticket-divider {
+      border: none;
+      border-top: 1px dashed rgba(0, 0, 0, 0.08);
+      margin: 12px 0;
+    }
+
+    .ticket-meta-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--text-3);
+      margin-bottom: 12px;
+    }
+
+    .ticket-meta-row span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .qr-wrapper {
+      width: 100px;
+      height: 100px;
+      background: var(--white);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 8px;
+      padding: 6px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .qr-wrapper img,
+    .qr-wrapper canvas {
+      width: 88px !important;
+      height: 88px !important;
+    }
+
+    .qr-hint {
+      font-size: 10px;
+      color: var(--text-4);
+      margin-top: 6px;
+      text-align: center;
+    }
+
+    .ticket-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .ticket-actions .btn {
+      flex: 1;
+      font-size: 13px;
+      padding: 11px 8px;
+    }
+
+    /* ===== EMPTY ===== */
+    .empty-state {
+      text-align: center;
+      padding: 56px 16px;
+    }
+
+    .empty-icon {
+      font-size: 52px;
+      margin-bottom: 12px;
+      opacity: 0.35;
+    }
+
+    .empty-text {
+      font-size: 14px;
+      color: var(--text-3);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Background -->
+  <div class="bg-blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+  <div class="bg-grid"></div>
+
+  <!-- LOADING -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-logo">🏥</div>
+    <div class="spinner"></div>
+    <div class="loading-text">ShifoNavbat yuklanmoqda...</div>
+  </div>
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="container">
+      <div class="header-inner">
+        <a href="index.html" class="logo">
+          <div class="logo-icon">🏥</div>
+          <div class="logo-text">
+            <span class="logo-title">ShifoNavbat</span>
+            <span class="logo-sub">Onlayn navbat</span>
+          </div>
+        </a>
+        <div class="header-nav">
+          <div class="header-time" id="headerTime">--:--</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- TOAST -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- MAIN -->
+  <main style="position:relative;z-index:1;">
+    <div class="container">
+
+      <!-- HERO -->
+      <section class="hero">
+        <div class="hero-pill"><span class="live-dot"></span>Shifoxona navbat tizimi</div>
+        <h1>Shifokorga <span class="gradient-text">Navbat</span><br>Tez va Oson</h1>
+        <p>Shifokoringizni tanlang, navbat raqamingizni oling va kutib turing</p>
+      </section>
+
+
+
+      <!-- SHIFOKORLAR -->
+      <section class="doctors-section">
+        <div class="section-header">
+          <div class="section-tag">👨‍⚕️ Mutaxassislar</div>
+          <h2 class="section-title">Shifokorni Tanlang</h2>
+          <p class="section-desc">Murojaat qilmoqchi bo'lgan shifokorni bosing</p>
+        </div>
+        <div class="doctors-grid" id="doctorsGrid">
+          <div class="skeleton" style="height:148px;border-radius:var(--r-lg);"></div>
+          <div class="skeleton" style="height:148px;border-radius:var(--r-lg);"></div>
+          <div class="skeleton" style="height:148px;border-radius:var(--r-lg);"></div>
+          <div class="skeleton" style="height:148px;border-radius:var(--r-lg);"></div>
+        </div>
+      </section>
+
+      <!-- NAVBAT -->
+      <section class="queue-section" id="queueSection">
+        <div class="section-header">
+          <div class="section-tag" id="selectedSpecTag">🩺 Tanlangan</div>
+          <h2 class="section-title" id="selectedDoctorTitle">Navbat</h2>
+        </div>
+        <div class="queue-card">
+          <p class="queue-doc-tag" id="queueDoctorName">SHIFOKOR</p>
+          <p class="queue-sub-label">Hozirgi navbat raqami</p>
+          <div class="queue-big-num" id="currentQueueDisplay">—</div>
+          <div class="queue-meta">
+            <div class="qm-item">
+              <div class="qm-val" id="totalQueueCount">0</div>
+              <div class="qm-lbl">Jami navbat</div>
+            </div>
+            <div class="qm-item">
+              <div class="qm-val" id="waitingCount">0</div>
+              <div class="qm-lbl">Kutayotgan</div>
+            </div>
+            <div class="qm-item">
+              <div class="qm-val" id="nextQueueNum">—</div>
+              <div class="qm-lbl">Keyingi №</div>
+            </div>
+          </div>
+        </div>
+        <div class="take-queue-wrap">
+          <button class="btn btn-primary btn-xl btn-full" id="takeQueueBtn" onclick="openNameModal()">
+            🎫&nbsp;&nbsp;Navbat Olish
+          </button>
+          <p class="take-hint">Navbat olgandan so'ng bildirishnoma olasiz</p>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="container">🏥 ShifoNavbat &copy; 2026 — Sog'ligingizga e'tiborli bo'ling!</div>
+  </footer>
+
+  <!-- ===== ISM MODALI ===== -->
+  <div class="modal-overlay" id="nameModal">
+    <div class="modal-box" style="max-width:400px;">
+      <button class="modal-close-btn" onclick="closeNameModal()">✕</button>
+      <div class="modal-inner">
+        <div class="nm-header">
+          <div class="nm-icon">🎫</div>
+          <div class="nm-title">Navbat Olish</div>
+          <div class="nm-sub">Ma'lumotlaringizni kiriting</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div class="form-group">
+            <label class="form-label">Ism *</label>
+            <input type="text" class="form-control" id="patientFirstName" placeholder="Sardor" autocomplete="given-name"
+              inputmode="text" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Familya *</label>
+            <input type="text" class="form-control" id="patientLastName" placeholder="Toshmatov"
+              autocomplete="family-name" inputmode="text" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Telefon <span
+                style="color:var(--text-4);font-weight:400;text-transform:none;">(ixtiyoriy)</span></label>
+            <input type="tel" class="form-control" id="patientPhone" placeholder="+998 90 123 45 67" autocomplete="tel"
+              inputmode="tel" />
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:22px;">
+          <button class="btn btn-ghost btn-full" onclick="closeNameModal()">Bekor</button>
+          <button class="btn btn-primary btn-full" id="confirmQueueBtn" onclick="confirmQueue()">✅ Navbat Olish</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TICKET MODALI ===== -->
+  <div class="modal-overlay" id="ticketModal">
+    <div class="modal-box" style="max-width:380px;">
+      <button class="modal-close-btn" onclick="closeTicketModal()">✕</button>
+      <div class="modal-inner" style="padding:18px;">
+        <div class="ticket-modal-top">
+          <div class="ticket-confetti">🎉</div>
+          <div class="ticket-modal-title">Navbat Olindi!</div>
+          <div class="ticket-modal-sub">Vaqtida keling, navbatingizni kuting</div>
+        </div>
+        <div class="ticket-card" id="ticketCard">
+          <div class="ticket-header-bar">
+            <span class="ticket-brand-icon">🏥</span>
+            <span class="ticket-brand-name">ShifoNavbat</span>
+          </div>
+          <div class="ticket-body">
+            <div class="ticket-lbl">Navbat Raqami</div>
+            <div class="ticket-num" id="ticketNumber">—</div>
+            <div class="ticket-name-txt" id="ticketName">—</div>
+            <div class="ticket-doc-txt" id="ticketDoctor">—</div>
+            <div class="ticket-meta-row">
+              <span>📅 <span id="ticketDate">—</span></span>
+              <span>🕐 <span id="ticketTime">—</span></span>
+            </div>
+            <div class="ticket-divider"></div>
+            <div class="qr-wrapper" id="qrWrapper"></div>
+            <div class="qr-hint">QR kodni skanerlang — navbatingizni ko'ring</div>
+          </div>
+        </div>
+        <div class="ticket-actions">
+          <button class="btn btn-white" onclick="downloadTicket()">⬇️ PNG</button>
+          <button class="btn btn-primary" onclick="closeTicketModal()">✓ Yopish</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=5" type="module"></script>
+</body>
+
+</html>

@@ -1,0 +1,21 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Logs
+*.log
+
+# Environment / secrets (firebase-config.js ichida kalitlar bor, lekin public repo uchun ok)
+.env
+.env.local
