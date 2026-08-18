@@ -32,6 +32,18 @@ window.addEventListener('DOMContentLoaded', async () => {
   startClock();
   try { await initServiceWorker(); } catch (e) { }
 
+  // ✅ ESKI FCM push obunasini BEKOR QILISH
+  // getToken() oldin chaqirilganda brauzer FCM ga obuna bo'lgan
+  // Bu obuna saqlanib qolgan — Firebase har vaqt push yuborib "Kontent berkitildi" chiqargan
+  try {
+    const reg = await navigator.serviceWorker?.ready;
+    const sub = await reg?.pushManager?.getSubscription();
+    if (sub) {
+      await sub.unsubscribe();
+      console.log('✅ Eski FCM push subscription bekor qilindi!');
+    }
+  } catch (e) { console.warn('Push unsubscribe:', e); }
+
   // Bildirishnoma tugmasini ko'rsatish
   updateNotifButton();
 
