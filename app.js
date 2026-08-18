@@ -252,15 +252,16 @@ async function showNativeNotification(title, body) {
   try {
     const swReg = await navigator.serviceWorker?.ready;
     if (swReg) {
-      // icon yo'q qilinadi — "kontent berkitildi" xatosini oldini olish
       await swReg.showNotification(title, {
         body,
+        icon:               '/icons/icon-192.png',
+        badge:              '/icons/icon-72.png',
         requireInteraction: true,
-        vibrate: [400, 100, 400, 100, 600],
-        tag: 'shifo-queue'
+        vibrate:            [400, 100, 400, 100, 600],
+        tag:                'shifo-queue'
       });
     } else {
-      new Notification(title, { body });
+      new Notification(title, { body, icon: '/icons/icon-192.png' });
     }
   } catch(e) { console.warn('Notification xatosi:', e); }
 }

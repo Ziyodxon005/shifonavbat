@@ -4,23 +4,13 @@
   "description": "Shifoxonada onlayn navbat olish tizimi",
   "start_url": "/index.html",
   "display": "standalone",
-  "background_color": "#0f0c29",
-  "theme_color": "#6c63ff",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
   "orientation": "portrait-primary",
   "icons": [
     {
       "src": "icons/icon-72.png",
       "sizes": "72x72",
-      "type": "image/png"
-    },
-    {
-      "src": "icons/icon-96.png",
-      "sizes": "96x96",
-      "type": "image/png"
-    },
-    {
-      "src": "icons/icon-128.png",
-      "sizes": "128x128",
       "type": "image/png"
     },
     {
