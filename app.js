@@ -153,36 +153,58 @@ if (messaging) {
 }
 
 // ====================================================
-// DB-BASED BILDIRISHNOMALAR (FCM server key shart emas)
+// DB-BASED REAL-TIME BILDIRISHNOMALAR
 // ====================================================
+let queueListener  = null;
+let _notified3     = false;
+let _notifiedTurn  = false;
+
 function watchMyQueue(doctorId, queueNum) {
   myQueueNumber = queueNum;
   myDoctorId    = doctorId;
+  _notified3    = false;
+  _notifiedTurn = false;
 
-  // localStorage ga saqlash (sahifa ochiq bo'lganda)
   localStorage.setItem('myQueue', JSON.stringify({ doctorId, queueNum }));
-
-  // ✅ SW ga ma'lumot yuborish (sayt yopilsa ham ishlaydi)
   sendQueueToSW(doctorId, queueNum);
 
-  // Sahifa ochiq bo'lganda — Firebase listener
-  db.ref(`doctors/${doctorId}/currentQueue`).on('value', snap => {
-    const current   = snap.val() || 0;
-    const remaining = queueNum - current;
-    if (remaining <= 0) return;
+  // Eski listenerni o'chirish
+  if (queueListener) {
+    db.ref(queueListener).off();
+  }
+  const path = `doctors/${doctorId}/currentQueue`;
+  queueListener = path;
 
-    if (remaining === 3) {
-      showNativeNotification('⏰ Navbatingiz Yaqinlashdi!',
-        `Sizdan oldin ${remaining} kishi qoldi. Tayyor bo'ling!`);
-      showToast('⏰', 'Navbatingiz Yaqinlashdi!',
-        `Sizdan oldin ${remaining} kishi qoldi`, 'warning', 8000);
+  // === REAL-TIME Firebase listener ===
+  db.ref(path).on('value', snap => {
+    const current   = snap.val() ?? 0;
+    const remaining = queueNum - current;
+
+    // ✅ NAVBATINGIZ KELDI (remaining === 0)
+    if (remaining === 0 && !_notifiedTurn) {
+      _notifiedTurn = true;
+      showNativeNotification('🔔 NAVBATINGIZ KELDI!',
+        'Hoziroq kirish xonasiga keling!');
+      showUrgentAlert(queueNum);
+      localStorage.removeItem('myQueue');
+      sendQueueToSW(null, null); // SW dan tozalash
     }
 
-    if (remaining === 1) {
-      showNativeNotification('🔔 KEYINGI NAVBAT SIZDA!',
-        `Hoziroq kirish xonasiga keling!`);
-      showToast('🔔', 'Navbatingiz keldi!',
-        'Hoziroq kirish xonasiga keling!', 'warning', 12000);
+    // Keyingi navbat sizda (remaining === 1)
+    if (remaining === 1 && !_notifiedTurn) {
+      showNativeNotification('🔔 Keyingi navbat sizda!',
+        'Tayyor bo\'ling, hozir navbatingiz!');
+      showToast('🔔', 'Keyingi navbat sizda!',
+        'Kirish xonasiga yaqinlashing!', 'warning', 10000);
+    }
+
+    // Yaqinlashmoqda (remaining === 3)
+    if (remaining === 3 && !_notified3) {
+      _notified3 = true;
+      showNativeNotification('⏰ Navbatingiz Yaqinlashdi!',
+        `Sizdan oldin ${remaining} kishi qoldi`);
+      showToast('⏰', 'Yaqinlashmoqda!',
+        `Sizdan oldin ${remaining} kishi qoldi`, 'info', 8000);
     }
   });
 }
@@ -191,50 +213,113 @@ function watchMyQueue(doctorId, queueNum) {
 async function sendQueueToSW(doctorId, queueNum) {
   try {
     const reg = await navigator.serviceWorker.ready;
-    if (reg?.active) {
-      reg.active.postMessage({
-        type: 'SAVE_QUEUE',
-        payload: { doctorId, queueNum }
-      });
-      console.log('📨 SW ga navbat yuborildi:', { doctorId, queueNum });
-    }
-  } catch(e) {
-    console.warn('SW postMessage xatosi:', e);
-  }
-}
-
-
-function restoreMyQueue() {
-  try {
-    const saved = localStorage.getItem('myQueue');
-    if (saved) {
-      const { doctorId, queueNum } = JSON.parse(saved);
-      watchMyQueue(doctorId, queueNum);
+    if (!reg?.active) return;
+    if (doctorId === null) {
+      reg.active.postMessage({ type: 'CLEAR_QUEUE' });
+    } else {
+      reg.active.postMessage({ type: 'SAVE_QUEUE', payload: { doctorId, queueNum } });
     }
   } catch(e) {}
 }
 
-async function showNativeNotification(title, body) {
+// Sahifaga qaytganda — darhol Firebase dan tekshirish
+function restoreMyQueue() {
   try {
-    // Mobile uchun SW orqali (new Notification mobile da ishlamaydi)
+    const saved = localStorage.getItem('myQueue');
+    if (!saved) return;
+    const { doctorId, queueNum } = JSON.parse(saved);
+
+    // Firebase dan joriy navbatni bir marta olish
+    db.ref(`doctors/${doctorId}/currentQueue`).once('value').then(snap => {
+      const current   = snap.val() ?? 0;
+      const remaining = queueNum - current;
+
+      if (remaining <= 0) {
+        // Navbat o'tib ketgan yoki hozir
+        if (remaining === 0) showUrgentAlert(queueNum);
+        localStorage.removeItem('myQueue');
+        return;
+      }
+
+      // Hali kutish kerak — listenerni yoqish
+      watchMyQueue(doctorId, queueNum);
+    });
+  } catch(e) {}
+}
+
+async function showNativeNotification(title, body) {
+  if (Notification.permission !== 'granted') return;
+  try {
     const swReg = await navigator.serviceWorker?.ready;
     if (swReg) {
       await swReg.showNotification(title, {
-        body,
-        icon: '/icons/icon-192.png',
+        body, icon: '/icons/icon-192.png',
         badge: '/icons/icon-72.png',
         requireInteraction: true,
-        vibrate: [300, 100, 300]
+        vibrate: [400, 100, 400, 100, 600]
       });
-    } else if (Notification.permission === 'granted') {
-      // Desktop fallback
+    } else {
       new Notification(title, { body, icon: '/icons/icon-192.png' });
     }
-  } catch(e) {
-    // Fallback: toast ko'rsatish
-    console.warn('Notification xatosi:', e);
-  }
+  } catch(e) { console.warn('Notification xatosi:', e); }
 }
+
+// ====================================================
+// URGENT ALERT — Navbat keldi dialog
+// ====================================================
+function showUrgentAlert(queueNum) {
+  document.getElementById('urgentAlert')?.remove();
+
+  const el = document.createElement('div');
+  el.id = 'urgentAlert';
+  el.style.cssText = `
+    position:fixed;inset:0;z-index:9999;
+    background:rgba(0,0,0,0.65);
+    backdrop-filter:blur(8px);
+    display:flex;align-items:center;justify-content:center;
+    padding:20px;
+  `;
+  el.innerHTML = `
+    <div style="
+      background:#fff;border-radius:28px;
+      padding:36px 28px;max-width:340px;width:100%;
+      text-align:center;
+      box-shadow:0 32px 80px rgba(0,0,0,0.25);
+      animation:fadeUp .4s cubic-bezier(.34,1.56,.64,1) both;
+    ">
+      <div style="font-size:64px;margin-bottom:16px;">🔔</div>
+      <div style="font-size:24px;font-weight:900;color:#111827;margin-bottom:8px;">
+        Navbatingiz Keldi!
+      </div>
+      <div style="
+        font-size:52px;font-weight:900;color:#4f46e5;
+        line-height:1;margin-bottom:8px;letter-spacing:-2px;
+      ">№${queueNum}</div>
+      <div style="font-size:14px;color:#ef4444;font-weight:700;margin-bottom:24px;">
+        ⚡ Tezroq kirish xonasiga keling!
+      </div>
+      <button
+        onclick="document.getElementById('urgentAlert').remove()"
+        style="
+          width:100%;padding:16px;border-radius:16px;
+          background:linear-gradient(135deg,#4f46e5,#7c3aed);
+          color:white;font-size:16px;font-weight:800;
+          border:none;cursor:pointer;
+          box-shadow:0 8px 24px rgba(79,70,229,0.4);
+          transition:transform .15s;
+        "
+        onmousedown="this.style.transform='scale(0.96)'"
+        onmouseup="this.style.transform=''"
+      >
+        ✅ Tushunarli, kiraman!
+      </button>
+    </div>`;
+  document.body.appendChild(el);
+
+  // Haptic feedback
+  navigator.vibrate?.([300, 100, 300, 100, 600]);
+}
+
 
 // ====================================================
 // SHIFOKORLARNI YUKLASH
