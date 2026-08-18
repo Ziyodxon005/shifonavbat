@@ -4,7 +4,7 @@
 // ====================================================
 
 const DB_URL = 'https://shifo-uz-default-rtdb.europe-west1.firebasedatabase.app';
-const CACHE = 'shifonavbat-v9';
+const CACHE = 'shifonavbat-v11';
 const CACHE_FILES = ['/index.html', '/style.css', '/app.js'];
 
 // ====================================================
