@@ -8,29 +8,29 @@ import { firebaseConfig, VAPID_KEY } from './firebase-config.js';
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-let messaging = null;
-try { messaging = firebase.messaging(); } catch(e) {}
+// let messaging = null;
+// try { messaging = firebase.messaging(); } catch(e) {}
 
-let selectedDoctor   = null;
+let selectedDoctor = null;
 let selectedDoctorId = null;
-let currentFCMToken  = null;
-let myQueueNumber    = null;  // Bemorning o'z navbat raqami
-let myDoctorId       = null;  // Bemorning shifokor ID si
+let currentFCMToken = null;
+let myQueueNumber = null;  // Bemorning o'z navbat raqami
+let myDoctorId = null;  // Bemorning shifokor ID si
 
 // DOM
-const doctorsGrid    = document.getElementById('doctorsGrid');
-const queueSection   = document.getElementById('queueSection');
+const doctorsGrid = document.getElementById('doctorsGrid');
+const queueSection = document.getElementById('queueSection');
 const loadingOverlay = document.getElementById('loadingOverlay');
-const nameModal      = document.getElementById('nameModal');
-const ticketModal    = document.getElementById('ticketModal');
-const headerTime     = document.getElementById('headerTime');
+const nameModal = document.getElementById('nameModal');
+const ticketModal = document.getElementById('ticketModal');
+const headerTime = document.getElementById('headerTime');
 
 // ====================================================
 // ISHGA TUSHIRISH
 // ====================================================
 window.addEventListener('DOMContentLoaded', async () => {
   startClock();
-  try { await initServiceWorker(); } catch(e) {}
+  try { await initServiceWorker(); } catch (e) { }
 
   // Bildirishnoma tugmasini ko'rsatish
   updateNotifButton();
@@ -40,7 +40,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // QR scan orqali
   const params = new URLSearchParams(window.location.search);
   if (params.get('queue') && params.get('doctor')) {
-    try { await showQueueFromUrl(params.get('doctor'), params.get('queue')); } catch(e) {}
+    try { await showQueueFromUrl(params.get('doctor'), params.get('queue')); } catch (e) { }
   }
 
   restoreMyQueue();
@@ -57,7 +57,7 @@ function startClock() {
   const update = () => {
     const now = new Date();
     if (headerTime) headerTime.textContent =
-      `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   };
   update(); setInterval(update, 1000);
 }
@@ -77,7 +77,7 @@ async function initServiceWorker() {
 // BILDIRISHNOMA TUGMASI
 // ====================================================
 function updateNotifButton() {
-  const btn    = document.getElementById('notifPermBtn');
+  const btn = document.getElementById('notifPermBtn');
   const banner = document.getElementById('notifBanner');
 
   if (!('Notification' in window)) {
@@ -94,10 +94,10 @@ function updateNotifButton() {
   if (!btn) return;
   if (perm === 'granted') {
     btn.innerHTML = '🔔 Yoqilgan';
-    btn.style.background   = 'rgba(16,185,129,0.1)';
-    btn.style.color        = '#059669';
-    btn.style.borderColor  = 'rgba(16,185,129,0.2)';
-    btn.style.cursor       = 'default';
+    btn.style.background = 'rgba(16,185,129,0.1)';
+    btn.style.color = '#059669';
+    btn.style.borderColor = 'rgba(16,185,129,0.2)';
+    btn.style.cursor = 'default';
     btn.onclick = null;
   } else if (perm === 'denied') {
     btn.innerHTML = '🔕 Bloklangan';
@@ -105,7 +105,7 @@ function updateNotifButton() {
     btn.onclick = null;
   } else {
     btn.innerHTML = '🔔 Bildirishnoma';
-    btn.onclick   = window.askNotifPermission;
+    btn.onclick = window.askNotifPermission;
   }
 }
 
@@ -125,36 +125,36 @@ window.askNotifPermission = async function () {
       showToast('⚠️', 'Ruxsat berilmadi', 'Bildirishnomalar bloklanib qolishi mumkin', 'warning');
     }
     updateNotifButton();
-  } catch(e) {
+  } catch (e) {
     showToast('❌', 'Xato', e.message, 'error');
   }
 };
 
-if (messaging) {
-  messaging.onMessage(payload => {
-    const { title, body } = payload.notification || {};
-    const type = payload.data?.type;
-    showToast(
-      type === 'turn' ? '🔔' : '⏰',
-      title || 'ShifoNavbat',
-      body || '',
-      type === 'turn' ? 'warning' : 'info',
-      8000
-    );
-  });
-}
+// if (messaging) {
+//   messaging.onMessage(payload => {
+//     const { title, body } = payload.notification || {};
+//     const type = payload.data?.type;
+//     showToast(
+//       type === 'turn' ? '🔔' : '⏰',
+//       title || 'ShifoNavbat',
+//       body || '',
+//       type === 'turn' ? 'warning' : 'info',
+//       8000
+//     );
+//   });
+// }
 
 // ====================================================
 // DB-BASED REAL-TIME BILDIRISHNOMALAR
 // ====================================================
-let queueListener  = null;
-let _notified3     = false;
-let _notifiedTurn  = false;
+let queueListener = null;
+let _notified3 = false;
+let _notifiedTurn = false;
 
 function watchMyQueue(doctorId, queueNum) {
   myQueueNumber = queueNum;
-  myDoctorId    = doctorId;
-  _notified3    = false;
+  myDoctorId = doctorId;
+  _notified3 = false;
   _notifiedTurn = false;
 
   localStorage.setItem('myQueue', JSON.stringify({ doctorId, queueNum }));
@@ -169,7 +169,7 @@ function watchMyQueue(doctorId, queueNum) {
 
   // === REAL-TIME Firebase listener ===
   db.ref(path).on('value', snap => {
-    const current   = snap.val() ?? 0;
+    const current = snap.val() ?? 0;
     const remaining = queueNum - current;
 
     // ✅ NAVBATINGIZ KELDI (remaining === 0)
@@ -211,7 +211,7 @@ async function sendQueueToSW(doctorId, queueNum) {
     } else {
       reg.active.postMessage({ type: 'SAVE_QUEUE', payload: { doctorId, queueNum } });
     }
-  } catch(e) {}
+  } catch (e) { }
 }
 
 // Sahifaga qaytganda — darhol Firebase dan tekshirish
@@ -223,7 +223,7 @@ function restoreMyQueue() {
 
     // Firebase dan joriy navbatni bir marta olish
     db.ref(`doctors/${doctorId}/currentQueue`).once('value').then(snap => {
-      const current   = snap.val() ?? 0;
+      const current = snap.val() ?? 0;
       const remaining = queueNum - current;
 
       if (remaining <= 0) {
@@ -236,7 +236,7 @@ function restoreMyQueue() {
       // Hali kutish kerak — listenerni yoqish
       watchMyQueue(doctorId, queueNum);
     });
-  } catch(e) {}
+  } catch (e) { }
 }
 
 async function showNativeNotification(title, body) {
@@ -247,12 +247,12 @@ async function showNativeNotification(title, body) {
   try {
     new Notification(title, { body });
     return;
-  } catch(e) {
+  } catch (e) {
     // Fallback: SW orqali
     try {
       const reg = await navigator.serviceWorker?.ready;
       reg?.active?.postMessage({ type: 'SHOW_NOTIFICATION', title, body });
-    } catch(err) {}
+    } catch (err) { }
   }
 }
 
@@ -344,13 +344,13 @@ function loadDoctors() {
 // ====================================================
 function createDoctorCard(id, doc) {
   const icons = {
-    'Nevropatolog':'🧠','Stomatolog':'🦷','Terapevt':'🩺',
-    'Kardiolog':'❤️','Pediatr':'👶','Oftalmolog':'👁️',
-    'Ortoped':'🦴','Xirurg':'🔬','Umumiy':'👨‍⚕️'
+    'Nevropatolog': '🧠', 'Stomatolog': '🦷', 'Terapevt': '🩺',
+    'Kardiolog': '❤️', 'Pediatr': '👶', 'Oftalmolog': '👁️',
+    'Ortoped': '🦴', 'Xirurg': '🔬', 'Umumiy': '👨‍⚕️'
   };
-  const icon    = icons[doc.specialty] || '👨‍⚕️';
+  const icon = icons[doc.specialty] || '👨‍⚕️';
   const waiting = Math.max(0, (doc.totalQueues || 0) - (doc.currentQueue || 0));
-  const card    = document.createElement('div');
+  const card = document.createElement('div');
   card.className = 'doc-card';
   card.id = `doctor-${id}`;
 
@@ -375,12 +375,12 @@ function selectDoctor(id, doc) {
   document.querySelectorAll('.doc-card').forEach(c => c.classList.remove('selected'));
   document.getElementById(`doctor-${id}`)?.classList.add('selected');
 
-  selectedDoctor   = doc;
+  selectedDoctor = doc;
   selectedDoctorId = id;
 
-  const tag   = document.getElementById('selectedSpecTag');
+  const tag = document.getElementById('selectedSpecTag');
   const title = document.getElementById('selectedDoctorTitle');
-  if (tag)   tag.textContent   = doc.specialty;
+  if (tag) tag.textContent = doc.specialty;
   if (title) title.textContent = `Dr. ${doc.name}`;
 
   queueSection?.classList.add('visible');
@@ -395,14 +395,14 @@ function loadQueueData(doctorId) {
   db.ref(`doctors/${doctorId}`).on('value', snap => {
     const doc = snap.val(); if (!doc) return;
     const current = doc.currentQueue || 0;
-    const total   = doc.totalQueues  || 0;
+    const total = doc.totalQueues || 0;
     const waiting = Math.max(0, total - current);
 
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
     set('currentQueueDisplay', current > 0 ? current : '—');
-    set('totalQueueCount',  total);
-    set('waitingCount',     waiting);
-    set('queueDoctorName',  `DR. ${doc.name?.toUpperCase()}`);
+    set('totalQueueCount', total);
+    set('waitingCount', waiting);
+    set('queueDoctorName', `DR. ${doc.name?.toUpperCase()}`);
   });
 
   db.ref(`queues/${doctorId}`).on('value', snap => {
@@ -439,9 +439,9 @@ document.addEventListener('keydown', e => {
 // NAVBAT TASDIQLASH
 // ====================================================
 window.confirmQueue = async function () {
-  const first  = document.getElementById('patientFirstName')?.value.trim();
-  const last   = document.getElementById('patientLastName')?.value.trim();
-  const phone  = document.getElementById('patientPhone')?.value.trim();
+  const first = document.getElementById('patientFirstName')?.value.trim();
+  const last = document.getElementById('patientLastName')?.value.trim();
+  const phone = document.getElementById('patientPhone')?.value.trim();
 
   if (!first || !last) {
     showToast('⚠️', 'To\'ldiring', 'Ism va familya majburiy!', 'warning'); return;
@@ -455,9 +455,9 @@ window.confirmQueue = async function () {
 
   try {
     const fullName = `${first} ${last}`;
-    const now      = new Date();
-    const date     = now.toLocaleDateString('uz-UZ');
-    const time     = now.toLocaleTimeString('uz-UZ', { hour:'2-digit', minute:'2-digit' });
+    const now = new Date();
+    const date = now.toLocaleDateString('uz-UZ');
+    const time = now.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' });
 
     // Navbat raqami
     const snap = await db.ref(`queues/${selectedDoctorId}`).once('value');
@@ -482,12 +482,12 @@ window.confirmQueue = async function () {
 
     showTicket({
       queueNumber: queueNum,
-      name:       fullName,
+      name: fullName,
       doctorName: selectedDoctor.name,
-      specialty:  selectedDoctor.specialty,
+      specialty: selectedDoctor.specialty,
       date, time,
-      doctorId:   selectedDoctorId,
-      queueId:    newRef.key
+      doctorId: selectedDoctorId,
+      queueId: newRef.key
     });
 
     showToast('🎉', 'Navbat Olindi!', `Siz №${queueNum} navbatdasiz`, 'success', 5000);
@@ -508,10 +508,10 @@ function showTicket(data) {
   currentTicketData = data;
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   set('ticketNumber', `№${data.queueNumber}`);
-  set('ticketName',   data.name);
+  set('ticketName', data.name);
   set('ticketDoctor', `${data.specialty} — Dr. ${data.doctorName}`);
-  set('ticketDate',   data.date);
-  set('ticketTime',   data.time);
+  set('ticketDate', data.date);
+  set('ticketTime', data.time);
 
   // QR Code
   const qrUrl = `${window.location.origin}${window.location.pathname}?doctor=${data.doctorId}&queue=${data.queueId}`;
@@ -546,14 +546,14 @@ window.downloadTicket = async function () {
 
   const W = 420, H = 600;
   const canvas = document.createElement('canvas');
-  canvas.width  = W * 2;  // Retina
+  canvas.width = W * 2;  // Retina
   canvas.height = H * 2;
   const ctx = canvas.getContext('2d');
   ctx.scale(2, 2);
 
   // — Soya —
   ctx.shadowColor = 'rgba(0,0,0,0.12)';
-  ctx.shadowBlur  = 24;
+  ctx.shadowBlur = 24;
   ctx.shadowOffsetY = 4;
 
   // — Oq karta fon —
@@ -565,7 +565,7 @@ window.downloadTicket = async function () {
   // — Indigo header —
   const headerH = 90;
   ctx.save();
-  roundRect(ctx, 10, 10, W - 20, headerH, { tl:20, tr:20, bl:0, br:0 });
+  roundRect(ctx, 10, 10, W - 20, headerH, { tl: 20, tr: 20, bl: 0, br: 0 });
   const grad = ctx.createLinearGradient(10, 10, W - 10, headerH + 10);
   grad.addColorStop(0, '#4f46e5');
   grad.addColorStop(1, '#7c3aed');
@@ -644,7 +644,7 @@ window.downloadTicket = async function () {
     ctx.fillStyle = '#9ca3af';
     ctx.font = '10px Inter, Arial, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('QR ni skanerlang', qrX + qrSize/2, qrY + qrSize + 18);
+    ctx.fillText('QR ni skanerlang', qrX + qrSize / 2, qrY + qrSize + 18);
     ctx.textAlign = 'left';
   }
 
@@ -654,7 +654,7 @@ window.downloadTicket = async function () {
   ctx.fillText('Navbatga kelmasa, o\'rni berilmaydi.', 28, 360);
 
   // — Footer bar —
-  roundRect(ctx, 10, H - 54, W - 20, 44, { tl:0, tr:0, bl:20, br:20 });
+  roundRect(ctx, 10, H - 54, W - 20, 44, { tl: 0, tr: 0, bl: 20, br: 20 });
   ctx.fillStyle = '#f9fafb';
   ctx.fill();
 
@@ -665,15 +665,15 @@ window.downloadTicket = async function () {
   ctx.textAlign = 'left';
 
   // — Yuklab olish —
-  const link    = document.createElement('a');
-  link.download = `navbat-${data.queueNumber}-${data.name.replace(/\s/g,'-')}.png`;
-  link.href     = canvas.toDataURL('image/png');
+  const link = document.createElement('a');
+  link.download = `navbat-${data.queueNumber}-${data.name.replace(/\s/g, '-')}.png`;
+  link.href = canvas.toDataURL('image/png');
   link.click();
 };
 
 // Canvas yordamchi — rounded rect
 function roundRect(ctx, x, y, w, h, r) {
-  if (typeof r === 'number') r = { tl:r, tr:r, bl:r, br:r };
+  if (typeof r === 'number') r = { tl: r, tr: r, bl: r, br: r };
   ctx.beginPath();
   ctx.moveTo(x + r.tl, y);
   ctx.lineTo(x + w - r.tr, y);
@@ -700,7 +700,7 @@ async function showQueueFromUrl(doctorId, queueId) {
 
   showTicket({
     queueNumber: q.queueNumber, name: q.name,
-    doctorName:  doc.name,     specialty: doc.specialty,
+    doctorName: doc.name, specialty: doc.specialty,
     date: q.date, time: q.time, doctorId, queueId
   });
 }

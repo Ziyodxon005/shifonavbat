@@ -38,15 +38,15 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('push', (event) => {
   event.waitUntil((async () => {
     let payload = {};
-    try { payload = event.data?.json() ?? {}; } catch(e) {}
+    try { payload = event.data?.json() ?? {}; } catch (e) { }
 
     // Agar bizning real xabar bo'lsa — ko'rsatamiz
     if (payload?.notification?.title) {
       await self.registration.showNotification(payload.notification.title, {
-        body:  payload.notification.body || '',
-        icon:  `${self.location.origin}/icons/icon-192.png`,
+        body: payload.notification.body || '',
+        icon: `${self.location.origin}/icons/icon-192.png`,
         badge: `${self.location.origin}/icons/icon-72.png`,
-        tag:   'push-notification'
+        tag: 'push-notification'
       });
       return;
     }
@@ -55,13 +55,35 @@ self.addEventListener('push', (event) => {
     // Ko'rsatmaslik, lekin Chrome fallback ni oldini olish uchun
     // showNotification chaqirib darhol yopamiz
     await self.registration.showNotification(' ', {
-      tag:    'push-internal',
+      tag: 'push-internal',
       silent: true,
-      body:   ' '
+      body: ' '
     });
     const notes = await self.registration.getNotifications({ tag: 'push-internal' });
     notes.forEach(n => n.close());
   })());
+});
+
+// sw.js ga qo'shing (fetch listener'dan oldin, istalgan joyga):
+
+self.addEventListener('push', (event) => {
+  // Agar real push kelsa ham, hech bo'lmasa to'g'ri ko'rinishda chiqsin
+  let title = 'ShifoNavbat';
+  let body = '';
+  try {
+    const data = event.data?.json();
+    title = data?.notification?.title || data?.title || title;
+    body = data?.notification?.body || data?.body || '';
+  } catch (e) { }
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: `${self.location.origin}/icons/icon-192.png`,
+      badge: `${self.location.origin}/icons/icon-72.png`,
+      tag: 'shifo-push'
+    })
+  );
 });
 
 // ====================================================
