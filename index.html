@@ -554,6 +554,14 @@
         </a>
         <div class="header-nav">
           <div class="header-time" id="headerTime">--:--</div>
+          <button id="notifPermBtn"
+            style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;
+                   background:rgba(79,70,229,0.07);border:1.5px solid rgba(79,70,229,0.15);
+                   color:#4f46e5;font-size:12px;font-weight:600;cursor:pointer;
+                   transition:all .2s ease;white-space:nowrap;"
+            onclick="askNotifPermission()">
+            🔔 Bildirishnoma
+          </button>
         </div>
       </div>
     </div>
@@ -572,7 +580,22 @@
         <h1>Shifokorga <span class="gradient-text">Navbat</span><br>Tez va Oson</h1>
         <p>Shifokoringizni tanlang, navbat raqamingizni oling va kutib turing</p>
       </section>
-
+      <!-- BILDIRISHNOMA BANNER -->
+      <div id="notifBanner"
+        style="display:none;align-items:center;gap:12px;
+               background:linear-gradient(135deg,rgba(79,70,229,0.07),rgba(124,58,237,0.07));
+               border:1.5px solid rgba(79,70,229,0.15);border-radius:16px;
+               padding:14px 16px;margin-bottom:20px;cursor:pointer;
+               animation:fadeUp .5s ease both;"
+        onclick="askNotifPermission()">
+        <div style="font-size:28px;flex-shrink:0;">🔔</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:2px;">Bildirishnomalarni yoqing</div>
+          <div style="font-size:12px;color:#6b7280;">Navbatingiz kelganda xabardor bo'ling</div>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:#4f46e5;background:rgba(79,70,229,0.1);
+                    padding:6px 12px;border-radius:999px;flex-shrink:0;">Yoqish →</div>
+      </div>
 
 
       <!-- SHIFOKORLAR -->
@@ -704,7 +727,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=6" type="module"></script>
+  <script src="app.js?v=7" type="module"></script>
 </body>
 
 </html>

@@ -31,7 +31,10 @@ const headerTime     = document.getElementById('headerTime');
 window.addEventListener('DOMContentLoaded', async () => {
   startClock();
   try { await initServiceWorker(); } catch(e) {}
-  try { await requestNotificationPermission(); } catch(e) {}
+
+  // Bildirishnoma tugmasini ko'rsatish
+  updateNotifButton();
+
   loadDoctors();
 
   // QR scan orqali
@@ -40,7 +43,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     try { await showQueueFromUrl(params.get('doctor'), params.get('queue')); } catch(e) {}
   }
 
-  // localStorage dan navbat ma'lumoti (sayt qayta ochilsa)
   restoreMyQueue();
 
   setTimeout(() => {
@@ -72,25 +74,70 @@ async function initServiceWorker() {
 }
 
 // ====================================================
-// BILDIRISHNOMA RUXSATI
+// BILDIRISHNOMA TUGMASI
 // ====================================================
-async function requestNotificationPermission() {
-  if (!('Notification' in window)) return;
-  const perm = await Notification.requestPermission();
-  if (perm !== 'granted') return;
+function updateNotifButton() {
+  const btn    = document.getElementById('notifPermBtn');
+  const banner = document.getElementById('notifBanner');
 
-  if (messaging) {
-    try {
-      const token = await messaging.getToken({ vapidKey: VAPID_KEY });
-      currentFCMToken = token;
-      console.log('📱 FCM Token olindi');
-    } catch(e) {
-      console.warn('FCM token xatosi:', e.message);
-    }
+  if (!('Notification' in window)) {
+    if (btn) btn.style.display = 'none';
+    if (banner) banner.style.display = 'none';
+    return;
+  }
+
+  const perm = Notification.permission;
+
+  // Banner — faqat "default" (hali so'ralmagan) holda ko'rsatish
+  if (banner) banner.style.display = (perm === 'default') ? 'flex' : 'none';
+
+  if (!btn) return;
+  if (perm === 'granted') {
+    btn.innerHTML = '🔔 Yoqilgan';
+    btn.style.background   = 'rgba(16,185,129,0.1)';
+    btn.style.color        = '#059669';
+    btn.style.borderColor  = 'rgba(16,185,129,0.2)';
+    btn.style.cursor       = 'default';
+    btn.onclick = null;
+  } else if (perm === 'denied') {
+    btn.innerHTML = '🔕 Bloklangan';
+    btn.style.color = '#dc2626';
+    btn.onclick = null;
+  } else {
+    btn.innerHTML = '🔔 Bildirishnoma';
+    btn.onclick   = window.askNotifPermission;
   }
 }
 
-// Foreground xabarlar
+window.askNotifPermission = async function () {
+  if (!('Notification' in window)) {
+    showToast('⚠️', 'Qo\'llab-quvvatlanmaydi', 'Brauzeringiz bildirishnomani qo\'llab-quvvatlamaydi', 'warning');
+    return;
+  }
+
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      showToast('✅', 'Ruxsat berildi!', 'Bildirishnomalar yoqildi', 'success');
+
+      // FCM token olish
+      if (messaging) {
+        try {
+          currentFCMToken = await messaging.getToken({ vapidKey: VAPID_KEY });
+        } catch(e) { console.warn('FCM token:', e.message); }
+      }
+
+      // Test bildirishnoma
+      await showNativeNotification('✅ ShifoNavbat', 'Bildirishnomalar muvaffaqiyatli yoqildi!');
+    } else {
+      showToast('⚠️', 'Ruxsat berilmadi', 'Bildirishnomalar bloklanib qolishi mumkin', 'warning');
+    }
+    updateNotifButton();
+  } catch(e) {
+    showToast('❌', 'Xato', e.message, 'error');
+  }
+};
+
 if (messaging) {
   messaging.onMessage(payload => {
     const { title, body } = payload.notification || {};
@@ -150,15 +197,25 @@ function restoreMyQueue() {
   } catch(e) {}
 }
 
-function showNativeNotification(title, body) {
-  if (Notification.permission === 'granted') {
-    new Notification(title, {
-      body,
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-72.png',
-      requireInteraction: true,
-      vibrate: [200, 100, 200]
-    });
+async function showNativeNotification(title, body) {
+  try {
+    // Mobile uchun SW orqali (new Notification mobile da ishlamaydi)
+    const swReg = await navigator.serviceWorker?.ready;
+    if (swReg) {
+      await swReg.showNotification(title, {
+        body,
+        icon: '/icons/icon-192.png',
+        badge: '/icons/icon-72.png',
+        requireInteraction: true,
+        vibrate: [300, 100, 300]
+      });
+    } else if (Notification.permission === 'granted') {
+      // Desktop fallback
+      new Notification(title, { body, icon: '/icons/icon-192.png' });
+    }
+  } catch(e) {
+    // Fallback: toast ko'rsatish
+    console.warn('Notification xatosi:', e);
   }
 }
 
