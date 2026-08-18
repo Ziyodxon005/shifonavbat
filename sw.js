@@ -5,8 +5,8 @@
 // chiqarardi. Endi faqat toza SW ishlatiladi.
 // ====================================================
 
-const DB_URL    = 'https://shifo-uz-default-rtdb.europe-west1.firebasedatabase.app';
-const CACHE     = 'shifonavbat-v5';
+const DB_URL = 'https://shifo-uz-default-rtdb.europe-west1.firebasedatabase.app';
+const CACHE = 'shifonavbat-v5';
 const CACHE_FILES = ['/index.html', '/style.css', '/app.js'];
 
 // ====================================================
@@ -16,7 +16,7 @@ self.addEventListener('install', (event) => {
   console.log('[SW] v5 o\'rnatildi');
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(CACHE_FILES).catch(() => {}))
+    caches.open(CACHE).then(c => c.addAll(CACHE_FILES).catch(() => { }))
   );
 });
 
@@ -33,7 +33,7 @@ self.addEventListener('activate', (event) => {
 // ====================================================
 // INDEXEDDB — Navbat ma'lumotini saqlash
 // ====================================================
-const IDB_NAME  = 'shifonavbat-db';
+const IDB_NAME = 'shifonavbat-db';
 const IDB_STORE = 'queue';
 
 function openIDB() {
@@ -41,7 +41,7 @@ function openIDB() {
     const req = indexedDB.open(IDB_NAME, 1);
     req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
     req.onsuccess = () => resolve(req.result);
-    req.onerror   = () => reject(req.error);
+    req.onerror = () => reject(req.error);
   });
 }
 async function idbSet(key, value) {
@@ -50,16 +50,16 @@ async function idbSet(key, value) {
     const tx = db.transaction(IDB_STORE, 'readwrite');
     tx.objectStore(IDB_STORE).put(value, key);
     tx.oncomplete = resolve;
-    tx.onerror    = () => reject(tx.error);
+    tx.onerror = () => reject(tx.error);
   });
 }
 async function idbGet(key) {
   const db = await openIDB();
   return new Promise((resolve, reject) => {
-    const tx  = db.transaction(IDB_STORE, 'readonly');
+    const tx = db.transaction(IDB_STORE, 'readonly');
     const req = tx.objectStore(IDB_STORE).get(key);
     req.onsuccess = () => resolve(req.result);
-    req.onerror   = () => reject(req.error);
+    req.onerror = () => reject(req.error);
   });
 }
 async function idbDelete(key) {
@@ -68,7 +68,7 @@ async function idbDelete(key) {
     const tx = db.transaction(IDB_STORE, 'readwrite');
     tx.objectStore(IDB_STORE).delete(key);
     tx.oncomplete = resolve;
-    tx.onerror    = () => reject(tx.error);
+    tx.onerror = () => reject(tx.error);
   });
 }
 
@@ -84,14 +84,14 @@ self.addEventListener('message', (event) => {
     const { title, body } = event.data;
     event.waitUntil(
       self.registration.showNotification(title || 'ShifoNavbat', {
-        body:               body || '',
-        icon:               `${self.location.origin}/icons/icon-192.png`,
-        badge:              `${self.location.origin}/icons/icon-72.png`,
+        body: body || '',
+        icon: `${self.location.origin}/icons/icon-192.png`,
+        badge: `${self.location.origin}/icons/icon-72.png`,
         requireInteraction: true,
-        vibrate:            [400, 100, 400, 100, 600],
-        tag:                'shifo-queue',
-        renotify:           true,
-        data:               { url: `${self.location.origin}/index.html` }
+        vibrate: [400, 100, 400, 100, 600],
+        tag: 'shifo-queue',
+        renotify: true,
+        data: { url: `${self.location.origin}/index.html` }
       })
     );
   }
@@ -102,7 +102,7 @@ self.addEventListener('message', (event) => {
         if (self.registration.periodicSync) {
           return self.registration.periodicSync
             .register('check-queue', { minInterval: 60_000 })
-            .catch(() => {});
+            .catch(() => { });
         }
       })
     );
@@ -138,12 +138,12 @@ async function checkAndNotify() {
     const remaining = queueNum - current;
 
     if (remaining === 0 && !notifiedTurn) {
-      await self.registration.showNotification('🔔 NAVBATINGIZ KELDI!', {
-        body:               'Hoziroq kirish xonasiga keling!',
-        icon:               `${self.location.origin}/icons/icon-192.png`,
-        badge:              `${self.location.origin}/icons/icon-72.png`,
+      await self.registration.showNotification(' NAVBATINGIZ KELDI!', {
+        body: 'Hoziroq kirish xonasiga keling!',
+        icon: `${self.location.origin}/icons/icon-192.png`,
+        badge: `${self.location.origin}/icons/icon-72.png`,
         requireInteraction: true,
-        vibrate:            [400, 100, 400, 100, 600],
+        vibrate: [400, 100, 400, 100, 600],
         tag: 'queue-turn',
         data: { url: `${self.location.origin}/index.html` }
       });
@@ -152,12 +152,12 @@ async function checkAndNotify() {
     }
 
     if (remaining === 3 && !notified3) {
-      await self.registration.showNotification('⏰ Navbatingiz Yaqinlashdi!', {
-        body:               `Sizdan oldin ${remaining} kishi qoldi`,
-        icon:               `${self.location.origin}/icons/icon-192.png`,
-        badge:              `${self.location.origin}/icons/icon-72.png`,
+      await self.registration.showNotification(' Navbatingiz Yaqinlashdi!', {
+        body: `Sizdan oldin ${remaining} kishi qoldi`,
+        icon: `${self.location.origin}/icons/icon-192.png`,
+        badge: `${self.location.origin}/icons/icon-72.png`,
         requireInteraction: true,
-        vibrate:            [300, 100, 300],
+        vibrate: [300, 100, 300],
         tag: 'queue-approaching',
         data: { url: `${self.location.origin}/index.html` }
       });
@@ -166,7 +166,7 @@ async function checkAndNotify() {
 
     if (remaining <= 0) await idbDelete('myQueue');
 
-  } catch(e) {
+  } catch (e) {
     console.error('[SW] checkAndNotify xatosi:', e);
   }
 }
