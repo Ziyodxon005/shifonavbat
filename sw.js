@@ -89,27 +89,38 @@ async function idbDelete(key) {
 self.addEventListener('message', async (event) => {
   const { type, payload } = event.data || {};
 
+  // Navbat ma'lumotini saqlash
   if (type === 'SAVE_QUEUE') {
-    // Navbat ma'lumotini IndexedDB ga saqlash
     await idbSet('myQueue', payload);
     console.log('[SW] Navbat saqlandi:', payload);
-
-    // Periodic Sync ni ro'yxatdan o'tkazish (Android Chrome)
     try {
       if (self.registration.periodicSync) {
         await self.registration.periodicSync.register('check-queue', {
-          minInterval: 60 * 1000  // Har 1 daqiqada
+          minInterval: 60 * 1000
         });
-        console.log('[SW] Periodic sync ro\'yxatdan o\'tdi');
       }
-    } catch(e) {
-      console.log('[SW] Periodic sync yo\'q, fallback ishlatiladi');
-    }
+    } catch(e) {}
   }
 
   if (type === 'CLEAR_QUEUE') {
     await idbDelete('myQueue');
-    console.log('[SW] Navbat ma\'lumoti o\'chirildi');
+  }
+
+  // ✅ Sahifadan bildirishnoma so'rovi — SW o'zi chiqaradi
+  // Chrome Android da sahifadan showNotification() = "kontent berkitildi"
+  // SW kontekstidan chaqirilsa = to'g'ri ishlaydi
+  if (type === 'SHOW_NOTIFICATION') {
+    const { title, body, icon, badge } = event.data;
+    await self.registration.showNotification(title || 'ShifoNavbat', {
+      body:               body || '',
+      icon:               icon  || `${self.location.origin}/icons/icon-192.png`,
+      badge:              badge || `${self.location.origin}/icons/icon-72.png`,
+      requireInteraction: true,
+      vibrate:            [400, 100, 400, 100, 600],
+      tag:                'shifo-queue',
+      renotify:           true,
+      data:               { url: self.location.origin }
+    });
   }
 });
 

@@ -13,26 +13,26 @@ const messaging = firebase.messaging();
 // === CONSTANTS ===
 const SPECIALTIES = [
   { name: 'Nevropatolog', icon: '🧠' },
-  { name: 'Stomatolog',   icon: '🦷' },
-  { name: 'Terapevt',     icon: '🩺' },
-  { name: 'Kardiolog',    icon: '❤️' },
-  { name: 'Pediatr',      icon: '👶' },
-  { name: 'Oftalmolog',   icon: '👁️' },
-  { name: 'Ortoped',      icon: '🦴' },
-  { name: 'Xirurg',       icon: '🔬' },
-  { name: 'Umumiy',       icon: '👨‍⚕️' },
+  { name: 'Stomatolog', icon: '🦷' },
+  { name: 'Terapevt', icon: '🩺' },
+  { name: 'Kardiolog', icon: '❤️' },
+  { name: 'Pediatr', icon: '👶' },
+  { name: 'Oftalmolog', icon: '👁️' },
+  { name: 'Ortoped', icon: '🦴' },
+  { name: 'Xirurg', icon: '🔬' },
+  { name: 'Umumiy', icon: '👨‍⚕️' },
 ];
 
 const SPECIALTY_GRADIENTS = {
   'Nevropatolog': 'linear-gradient(135deg, rgba(108,99,255,0.4), rgba(6,182,212,0.4))',
-  'Stomatolog':   'linear-gradient(135deg, rgba(244,114,182,0.4), rgba(139,92,246,0.4))',
-  'Terapevt':     'linear-gradient(135deg, rgba(16,185,129,0.4), rgba(6,182,212,0.4))',
-  'Kardiolog':    'linear-gradient(135deg, rgba(239,68,68,0.4),   rgba(245,158,11,0.4))',
-  'Pediatr':      'linear-gradient(135deg, rgba(6,182,212,0.4),   rgba(59,130,246,0.4))',
-  'Oftalmolog':   'linear-gradient(135deg, rgba(245,158,11,0.4),  rgba(16,185,129,0.4))',
-  'Ortoped':      'linear-gradient(135deg, rgba(139,92,246,0.4),  rgba(244,114,182,0.4))',
-  'Xirurg':       'linear-gradient(135deg, rgba(59,130,246,0.4),  rgba(108,99,255,0.4))',
-  'Umumiy':       'linear-gradient(135deg, rgba(107,114,128,0.4), rgba(75,85,99,0.4))',
+  'Stomatolog': 'linear-gradient(135deg, rgba(244,114,182,0.4), rgba(139,92,246,0.4))',
+  'Terapevt': 'linear-gradient(135deg, rgba(16,185,129,0.4), rgba(6,182,212,0.4))',
+  'Kardiolog': 'linear-gradient(135deg, rgba(239,68,68,0.4),   rgba(245,158,11,0.4))',
+  'Pediatr': 'linear-gradient(135deg, rgba(6,182,212,0.4),   rgba(59,130,246,0.4))',
+  'Oftalmolog': 'linear-gradient(135deg, rgba(245,158,11,0.4),  rgba(16,185,129,0.4))',
+  'Ortoped': 'linear-gradient(135deg, rgba(139,92,246,0.4),  rgba(244,114,182,0.4))',
+  'Xirurg': 'linear-gradient(135deg, rgba(59,130,246,0.4),  rgba(108,99,255,0.4))',
+  'Umumiy': 'linear-gradient(135deg, rgba(107,114,128,0.4), rgba(75,85,99,0.4))',
 };
 
 // === GLOBAL STATE ===
@@ -160,7 +160,7 @@ function renderDashboard() {
           <div class="rt-bar-bg"><div class="rt-bar" style="width:${percent}%;"></div></div>
         </div>
         <div class="rt-nums">
-          <div class="rt-main">${doc.currentQueue||0} / ${doc.totalQueues||0}</div>
+          <div class="rt-main">${doc.currentQueue || 0} / ${doc.totalQueues || 0}</div>
           <div class="rt-sub">${waiting} kutayotgan</div>
         </div>
       </div>`;
@@ -195,16 +195,16 @@ function renderAdminDoctors() {
         <div class="dr-icon">${icon}</div>
         <div class="dr-info">
           <div class="dr-name">Dr. ${doc.name}</div>
-          <div class="dr-spec">${doc.specialty}${doc.room ? ' · Kab: '+doc.room : ''}${doc.hours ? ' · '+doc.hours : ''}</div>
+          <div class="dr-spec">${doc.specialty}${doc.room ? ' · Kab: ' + doc.room : ''}${doc.hours ? ' · ' + doc.hours : ''}</div>
         </div>
         <div class="dr-stats">
-          <div class="drs-item"><div class="drs-val">${doc.currentQueue||0}</div><div class="drs-lbl">Joriy</div></div>
-          <div class="drs-item"><div class="drs-val">${doc.totalQueues||0}</div><div class="drs-lbl">Jami</div></div>
+          <div class="drs-item"><div class="drs-val">${doc.currentQueue || 0}</div><div class="drs-lbl">Joriy</div></div>
+          <div class="drs-item"><div class="drs-val">${doc.totalQueues || 0}</div><div class="drs-lbl">Jami</div></div>
           <div class="drs-item"><div class="drs-val">${waiting}</div><div class="drs-lbl">Kutayotgan</div></div>
         </div>
         <div class="dr-actions">
           <label class="toggle-switch">
-            <input type="checkbox" ${doc.isActive?'checked':''} onchange="toggleDoctorActive('${id}',this.checked)"/>
+            <input type="checkbox" ${doc.isActive ? 'checked' : ''} onchange="toggleDoctorActive('${id}',this.checked)"/>
             <span class="toggle-slider"></span>
           </label>
           <button class="btn btn-danger btn-sm" onclick="confirmDelete('${id}','Dr. ${doc.name}')">🗑️</button>
@@ -241,13 +241,13 @@ function renderQueuesSection() {
       const isDone = q.queueNumber < current || q.status === 'done';
       const rowClass = isCurrent ? 'current-row' : isDone ? 'done-row' : '';
 
-        return `
+      return `
         <tr class="${rowClass}">
-          <td class="q-num-cell">№${q.queueNumber}${isCurrent?'<span class="badge badge-green" style="margin-left:6px;font-size:9px;">Joriy</span>':''}</td>
+          <td class="q-num-cell">№${q.queueNumber}${isCurrent ? '<span class="badge badge-green" style="margin-left:6px;font-size:9px;">Joriy</span>' : ''}</td>
           <td style="font-weight:600;color:var(--text-1);">${q.name}</td>
-          <td>${q.phone||'—'}</td>
-          <td>${q.time||'—'}</td>
-          <td><span class="badge ${isCurrent?'badge-green':isDone?'badge-default':'badge-yellow'}">${isCurrent?'✅ Kiribdi':isDone?'✓ Tugadi':'⏳ Kutmoqda'}</span></td>
+          <td>${q.phone || '—'}</td>
+          <td>${q.time || '—'}</td>
+          <td><span class="badge ${isCurrent ? 'badge-green' : isDone ? 'badge-default' : 'badge-yellow'}">${isCurrent ? '✅ Kiribdi' : isDone ? '✓ Tugadi' : '⏳ Kutmoqda'}</span></td>
           <td><button class="btn btn-danger btn-sm" style="padding:5px 8px;" onclick="removeQueue('${docId}','${qId}','${doc.name}')">🗑️</button></td>
         </tr>`;
     }).join('');
@@ -283,9 +283,9 @@ function renderQueuesSection() {
           <div class="next-bar">
             <div>
               <div class="nb-label">Navbatga chaqirish</div>
-              <div class="nb-val">№${nextNum}${nextPatient ? ' — <span style="color:var(--text-3);font-size:14px;font-weight:500;">'+nextPatient.name+'</span>' : ''}</div>
+              <div class="nb-val">№${nextNum}${nextPatient ? ' — <span style="color:var(--text-3);font-size:14px;font-weight:500;">' + nextPatient.name + '</span>' : ''}</div>
             </div>
-            <button class="btn btn-success" onclick="callNextQueue('${docId}',${nextNum},${JSON.stringify(nextPatient||null).replace(/"/g,'&quot;')})">
+            <button class="btn btn-success" onclick="callNextQueue('${docId}',${nextNum},${JSON.stringify(nextPatient || null).replace(/"/g, '&quot;')})">
               📢 Keyingi №${nextNum}
             </button>
           </div>

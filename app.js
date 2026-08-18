@@ -250,18 +250,23 @@ function restoreMyQueue() {
 async function showNativeNotification(title, body) {
   if (Notification.permission !== 'granted') return;
   try {
-    const swReg = await navigator.serviceWorker?.ready;
-    if (swReg) {
-      await swReg.showNotification(title, {
+    const reg = await navigator.serviceWorker?.ready;
+    if (reg?.active) {
+      // ✅ SW ga xabar yuborish — SW o'zi showNotification() chaqiradi
+      // Chrome Android da sahifadan showNotification() chaqirish "kontent berkitildi" beradi
+      reg.active.postMessage({
+        type: 'SHOW_NOTIFICATION',
+        title,
         body,
-        icon:               '/icons/icon-192.png',
-        badge:              '/icons/icon-72.png',
-        requireInteraction: true,
-        vibrate:            [400, 100, 400, 100, 600],
-        tag:                'shifo-queue'
+        icon: `${location.origin}/icons/icon-192.png`,
+        badge: `${location.origin}/icons/icon-72.png`
       });
     } else {
-      new Notification(title, { body, icon: '/icons/icon-192.png' });
+      // Fallback (desktop)
+      new Notification(title, {
+        body,
+        icon: `${location.origin}/icons/icon-192.png`
+      });
     }
   } catch(e) { console.warn('Notification xatosi:', e); }
 }
